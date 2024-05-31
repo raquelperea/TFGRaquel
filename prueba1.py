@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -69,8 +68,6 @@ def filter_emg_rms(emg):
 
     return rms_emg
 
-def filter_emg_default(emg):
-    return filter_emg_high_pass(emg)
 
 def filter_emg_high_pass(emg):
     sampling_freq = 1000
@@ -81,23 +78,25 @@ def filter_emg_high_pass(emg):
     nyquist_freq = 0.5 * sampling_freq
     normalized_cutoff_freq = cutoff_freq / nyquist_freq
     b, a = sp.butter(order, normalized_cutoff_freq, btype='highpass', analog=False)
-    print(b,a)
+    print(b, a)
     filtered_signal = sp.filtfilt(b, a, emg)
     return filtered_signal
 
+
 def filter_emg_low_pass(emg):
-    cutoff_freq = 45 # Hz
+    cutoff_freq = 45  # Hz
     sampling_freq = 1000  # Hz
     filter_order = 4
 
     nyquist_freq = 0.5 * sampling_freq
     normalized_cutoff_freq = cutoff_freq / nyquist_freq
 
-    #Butterworth low-pass filter
+    # Butterworth low-pass filter
     b, a = sp.butter(filter_order, normalized_cutoff_freq, btype='low', analog=False)
     filtered_signal = sp.filtfilt(b, a, emg)
 
     return filtered_signal
+
 
 def filter_emg_band_pass(emg):
     # Example usage:
@@ -111,18 +110,51 @@ def filter_emg_band_pass(emg):
     normalized_high_cutoff_freq = high_cutoff_freq / nyquist_freq
 
     # Design Butterworth band-pass filter
-    b, a = sp.butter(filter_order, [normalized_low_cutoff_freq, normalized_high_cutoff_freq], btype='band', analog=False)
+    b, a = sp.butter(filter_order, [normalized_low_cutoff_freq, normalized_high_cutoff_freq], btype='band',
+                     analog=False)
     filtered_signal = sp.filtfilt(b, a, emg)
 
     return filtered_signal
 
 
+def rolling_rms_filter(emg, half_window_size):
+    window_size = 2 * half_window_size + 1
+    window = np.ones(window_size) / float(window_size)
+
+    # return np.concatenate((
+    #     np.zeros(half_window_size),
+    #     np.sqrt(np.convolve(np.power(emg, 2), window, 'valid')),
+    #     np.zeros(half_window_size)
+    # ))
+
+    return np.sqrt(
+        sp.fftconvolve(
+            np.power(emg, 2),
+            window,
+            'same'))
+
+
+
+
+def filter_emg_rolling_rms(emg):
+    # return rolling_rms_filter(emg, 10)
+    # return rolling_rms_filter(emg, 3)
+    # return rolling_rms_filter(emg, 2)
+
+    return rolling_rms_filter(rolling_rms_filter(emg, 3), 1)
+
+
+def filter_emg_prueba(emg):
+    # return np.abs(emg)
+    # return np.gradient(emg)
+    return emg * np.gradient(emg) * 10
 
 
 def filter_emg_savgol(emg):
     filtered_emg_savgol = sp.savgol_filter(emg, 51, 4)
 
     return filtered_emg_savgol
+
 
 def filter_chebyshev_type2(emg):
     cutoff_freq = 10  # Hz
@@ -137,7 +169,6 @@ def filter_chebyshev_type2(emg):
     b, a = sp.cheby2(filter_order, stop_attenuation_db, normalized_cutoff_freq, btype='highpass', analog=False)
     filtered_signal = sp.filtfilt(b, a, emg)
     return filtered_signal
-
 
 
 # def filter_emg_kalman(emg):
@@ -180,13 +211,12 @@ def generar_grafica():
         ax_hammer.set_title('EMG and hammer graph')
         ax_hammer.grid(True, linestyle='--', alpha=0.7)
         ax_hammer.set_xlabel('Time(s)')
-        ax_hammer.set_ylabel('Hammer signal (V)', color = 'red')
+        ax_hammer.set_ylabel('Hammer signal (V)', color='red')
         ax_hammer.tick_params(axis='y', labelcolor='red')
 
         ax_emg = ax_hammer.twinx()
-        ax_emg.set_ylabel('EMG signal (mV)', color = 'blue')
+        ax_emg.set_ylabel('EMG signal (mV)', color='blue')
         ax_emg.tick_params(axis='y', labelcolor='blue')
-
 
     # hammer_original_data, = ax.plot(time, hammer_original, label='Hammer (dV)', color='red', linewidth=1, alpha=0.4)
     hammer_filtered_data, = ax_hammer.plot(time, hammer_filtered, label='Hammer filtered', color='red',
@@ -198,10 +228,11 @@ def generar_grafica():
 
     emg_original_data, = ax_emg.plot(time, emg_original, label='EMG', color='blue', linewidth=1, alpha=0.4)
     emg_filtered_data, = ax_emg.plot(time, emg_filtered, label='EMG filtered', color='blue',
-                                        linewidth=1, alpha=0.7)
+                                     linewidth=1, alpha=0.7)
     peak_time_emg, peak_value_emg = calcular_maximos_emg(xlim)
-    emg_peak_data, = ax_emg.plot(peak_time_emg, peak_value_emg, 'bo', label='EMG peak', alpha=0.7, markerfacecolor='none',
-                                    markeredgecolor='blue')
+    emg_peak_data, = ax_emg.plot(peak_time_emg, peak_value_emg, 'bo', label='EMG peak', alpha=0.7,
+                                 markerfacecolor='none',
+                                 markeredgecolor='blue')
     # peak_value_hammer = [value / 10 for value in peak_value_hammer]
 
     ylim_emg = ax_emg.get_ylim()
@@ -254,7 +285,7 @@ def generar_grafica():
         ax_hammer.set_xlim([xdata - (xdata - cur_xlim[0]) * scale_factor,
                             xdata + (cur_xlim[1] - xdata) * scale_factor])
         ax_emg.set_xlim([xdata - (xdata - cur_xlim[0]) * scale_factor,
-                            xdata + (cur_xlim[1] - xdata) * scale_factor])
+                         xdata + (cur_xlim[1] - xdata) * scale_factor])
         # ax.set_ylim([ydata - (ydata - cur_ylim[0]) * scale_factor,
         #              ydata + (cur_ylim[1] - ydata) * scale_factor])
         canvas.draw_idle()
@@ -277,7 +308,7 @@ def calcular_maximos_hammer(xlim):
     hammer_en_rango = np.array(hammer_filtered)[indices_en_rango]
 
     # Encontrar los máximos del Hammer por encima de 0.1
-    peak_hammer, _ = sp.find_peaks(hammer_en_rango, height =0.1)
+    peak_hammer, _ = sp.find_peaks(hammer_en_rango, height=0.1)
     peak_time_hammer = [round(time_en_rango[i], 3) for i in peak_hammer]
     peak_value_hammer = [round(hammer_en_rango[i], 3) for i in peak_hammer]
 
@@ -305,23 +336,21 @@ def calcular_maximos_emg(xlim):
     return peak_time_emg, peak_value_emg
 
 
-
-
-
 def calcular_delay_row(time, value, peak_time_emg, peak_value_emg):
     delay_row = (time, value, None, None, None)
     max_peak_value_emg = 0
     for i, peak_time in enumerate(peak_time_emg):
-        if time < peak_time and peak_time <= time+0.5:
+        if time < peak_time and peak_time <= time + 0.5:
             if peak_value_emg[i] > max_peak_value_emg:
-                delay_row = (time, value, peak_time, peak_value_emg[i], round(peak_time - time,3))
+                delay_row = (time, value, peak_time, peak_value_emg[i], round(peak_time - time, 3))
                 max_peak_value_emg = peak_value_emg[i]
 
     return delay_row
 
 
 def calcular_delay_rows(peak_time_hammer, peak_value_hammer, peak_time_emg, peak_value_emg):
-    delay_rows = [calcular_delay_row(time, peak_value_hammer[i], peak_time_emg, peak_value_emg) for i, time in enumerate(peak_time_hammer)]
+    delay_rows = [calcular_delay_row(time, peak_value_hammer[i], peak_time_emg, peak_value_emg) for i, time in
+                  enumerate(peak_time_hammer)]
     return delay_rows
 
 
@@ -336,7 +365,7 @@ def mostrar_resultados_calculos():
     # delays = [round(t_emg - t_hammer, 3) for t_emg, t_hammer in zip(peak_time_emg, peak_time_hammer)]
     delay_rows = calcular_delay_rows(peak_time_hammer, peak_value_hammer, peak_time_emg, peak_value_emg)
 
-    valid_delays = list(filter(lambda delay: delay is not None, list(map(lambda delay_row:delay_row[4], delay_rows))))
+    valid_delays = list(filter(lambda delay: delay is not None, list(map(lambda delay_row: delay_row[4], delay_rows))))
     mean_delay = np.mean(valid_delays)
 
     # Crear una tabla con los resultados
@@ -346,11 +375,11 @@ def mostrar_resultados_calculos():
         # 'T Hammer': peak_time_hammer,
         # 'Max Hammer': peak_value_hammer,
         # 'Delay': delay_rows  # Agregar la columna de Delay
-        'T hammer': list(map(lambda delay_row:delay_row[0], delay_rows)),
-        'Hammer peaks': list(map(lambda delay_row:delay_row[1], delay_rows)),
-        'T EMG': list(map(lambda delay_row:delay_row[2], delay_rows)),
-        'EMG peaks': list(map(lambda delay_row:delay_row[3], delay_rows)),
-        'Delay': list(map(lambda delay_row:delay_row[4], delay_rows))
+        'T hammer': list(map(lambda delay_row: delay_row[0], delay_rows)),
+        'Hammer peaks': list(map(lambda delay_row: delay_row[1], delay_rows)),
+        'T EMG': list(map(lambda delay_row: delay_row[2], delay_rows)),
+        'EMG peaks': list(map(lambda delay_row: delay_row[3], delay_rows)),
+        'Delay': list(map(lambda delay_row: delay_row[4], delay_rows))
     }, headers='keys', tablefmt='pretty', showindex=False)
 
     # Agregar la media de los delays a la tabla
@@ -399,6 +428,11 @@ def actualizar_leyenda():
 #     canvas.draw_idle()
 
 
+def filter_emg_default(emg):
+    # return filter_emg_high_pass(emg)
+    # return filter_emg_rolling_rms(emg)
+    return filter_emg_prueba(emg)
+
 def actualizar_emg_filter():
     global canvas, xlim, emg_filtered_data, emg_peak_data
     global emg_original
@@ -410,13 +444,20 @@ def actualizar_emg_filter():
         emg_filtered = filter_emg_default(emg_original)
         emg_filtered_data.set_ydata(emg_filtered)
 
-    elif emg_filter.get() == 'RMS':
-        emg_filtered = filter_emg_rms(emg_original)
-        emg_filtered_data.set_ydata(emg_filtered)
-
+    # elif emg_filter.get() == 'RMS':
+    #     emg_filtered = filter_emg_rms(emg_original)
+    #     emg_filtered_data.set_ydata(emg_filtered)
 
     elif emg_filter.get() == 'savgol':
         emg_filtered = filter_emg_savgol(emg_original)
+        emg_filtered_data.set_ydata(emg_filtered)
+
+    elif emg_filter.get() == 'rolling_rms':
+        emg_filtered = filter_emg_rolling_rms(emg_original)
+        emg_filtered_data.set_ydata(emg_filtered)
+
+    elif emg_filter.get() == 'prueba':
+        emg_filtered = filter_emg_prueba(emg_original)
         emg_filtered_data.set_ydata(emg_filtered)
 
     elif emg_filter.get() == 'high_pass':
@@ -445,7 +486,6 @@ def actualizar_emg_filter():
 
 def close_gui(ventana):
     ventana.destroy()
-
 
 
 ventana = tk.Tk()
@@ -484,22 +524,25 @@ subMenu_filter = tk.Menu(menu, tearoff=False)
 menu.add_cascade(label='Filter', menu=subMenu_filter)
 
 emg_filter = tk.StringVar(value='default')
-subMenu_filter.add_radiobutton(label='Original signal', variable=emg_filter, value='original', command=actualizar_emg_filter)
-subMenu_filter.add_radiobutton(label='Default (high pass) filter', variable=emg_filter, value='default',
+subMenu_filter.add_radiobutton(label='Original signal', variable=emg_filter, value='original',
+                               command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='Default (Rolling RMS) filter', variable=emg_filter, value='default',
                                command=actualizar_emg_filter)
 subMenu_filter.add_separator()
-subMenu_filter.add_radiobutton(label='RMS filter', variable=emg_filter, value='RMS', command=actualizar_emg_filter)
-subMenu_filter.add_radiobutton(label='Savitzky–Golay filter', variable=emg_filter, value='savgol', command=actualizar_emg_filter)
-subMenu_filter.add_radiobutton(label='High pass filter', variable=emg_filter, value='high_pass', command=actualizar_emg_filter)
-subMenu_filter.add_radiobutton(label='Low pass filter', variable=emg_filter, value='low_pass', command=actualizar_emg_filter)
-subMenu_filter.add_radiobutton(label='Band pass filter', variable=emg_filter, value='band_pass', command=actualizar_emg_filter)
+# subMenu_filter.add_radiobutton(label='RMS filter', variable=emg_filter, value='RMS',
+#                                command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='Rolling RMS filter', variable=emg_filter, value='rolling_rms',
+                               command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='Savitzky–Golay filter', variable=emg_filter, value='savgol',
+                               command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='High pass filter', variable=emg_filter, value='high_pass',
+                               command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='Low pass filter', variable=emg_filter, value='low_pass',
+                               command=actualizar_emg_filter)
+subMenu_filter.add_radiobutton(label='Band pass filter', variable=emg_filter, value='band_pass',
+                               command=actualizar_emg_filter)
 
-subMenu_filter.add_radiobutton(label='Chebyshev type2 filter', variable=emg_filter, value='Chebyshev2', command=actualizar_emg_filter)
-
+subMenu_filter.add_radiobutton(label='Chebyshev type2 filter', variable=emg_filter, value='Chebyshev2',
+                               command=actualizar_emg_filter)
 
 ventana.mainloop()
-
-
-
-
-
