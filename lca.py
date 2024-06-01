@@ -16,7 +16,7 @@ class LcaFile:
     @staticmethod
     def ask_file_name():
         file_name = tk.filedialog.askopenfilename(defaultextension=".txt",
-                                               filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+                                                  filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
         return file_name
 
     @staticmethod
@@ -102,6 +102,56 @@ class LcaUtils:
         # return emg * np.gradient(emg) * 10
 
     @staticmethod
+    def filter_emg_high_pass(emg):
+        sampling_freq = 1000
+        # cutoff_freq = 20
+        cutoff_freq = 20
+        order = 2
+
+        nyquist_freq = 0.5 * sampling_freq
+        normalized_cutoff_freq = cutoff_freq / nyquist_freq
+        b, a = sp.butter(order, normalized_cutoff_freq, btype='highpass', analog=False, output='ba')
+        filtered_signal = sp.filtfilt(b, a, emg)
+        return filtered_signal
+
+    @staticmethod
+    def filter_emg_low_pass(emg):
+        cutoff_freq = 35  # Hz
+        sampling_freq = 1000  # Hz
+        filter_order = 2
+
+        nyquist_freq = 0.5 * sampling_freq
+        normalized_cutoff_freq = cutoff_freq / nyquist_freq
+
+        offset = np.mean(emg)  # Calculate the mean value of the signal
+        offset_removed_signal = emg - offset
+
+        # Butterworth low-pass filter
+        b, a = sp.butter(filter_order, normalized_cutoff_freq,
+                         btype='lowpass', analog=False, output='ba')
+        filtered_signal = sp.filtfilt(b, a, offset_removed_signal)
+
+        return filtered_signal
+
+    @staticmethod
+    def filter_emg_band_pass(emg):
+        low_cutoff_freq = 20  # Hz
+        high_cutoff_freq = 35  # Hz
+        sampling_freq = 1000  # Hz
+        filter_order = 4
+
+        nyquist_freq = 0.5 * sampling_freq
+        normalized_low_cutoff_freq = low_cutoff_freq / nyquist_freq
+        normalized_high_cutoff_freq = high_cutoff_freq / nyquist_freq
+
+        # Design Butterworth band-pass filter
+        b, a = sp.butter(filter_order, [normalized_low_cutoff_freq, normalized_high_cutoff_freq],
+                         btype='bandpass', analog=False, output='ba')
+        filtered_signal = sp.filtfilt(b, a, emg)
+
+        return filtered_signal
+
+    @staticmethod
     def filter_emg_savgol(emg):
         return sp.savgol_filter(emg, window_length=45, polyorder=4)
 
@@ -116,7 +166,8 @@ class LcaUtils:
         normalized_cutoff_freq = cutoff_freq / nyquist_freq
 
         # Design Chebyshev Type II high-pass filter
-        b, a = sp.cheby2(filter_order, stop_attenuation_db, normalized_cutoff_freq, btype='highpass', analog=False)
+        b, a = sp.cheby2(filter_order, stop_attenuation_db, normalized_cutoff_freq,
+                         btype='highpass', analog=False, output='ba')
         filtered = sp.filtfilt(b, a, emg)
         return filtered
 
@@ -534,7 +585,8 @@ class LcaWindow:
     def latency_show_stats_onclick(self):
         pass
 
-def main()->int:
+
+def main() -> int:
     file_name = LcaFile.ask_file_name()
     if file_name == '':
         return 1
@@ -543,6 +595,7 @@ def main()->int:
         lca_window = LcaWindow(lca_data)
         lca_window.run()
         return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())
