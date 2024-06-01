@@ -1,5 +1,5 @@
+import sys
 import tkinter as tk
-from tkinter import filedialog  # , messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from tabulate import tabulate
 
@@ -9,13 +9,13 @@ import numpy as np
 from scipy import signal as sp
 
 # from PIL import Image, ImageTk
-import pyemgpipeline as pep
+import pyemgpipeline
 
 
 class LcaFile:
     @staticmethod
     def ask_file_name():
-        file_name = filedialog.askopenfilename(defaultextension=".txt",
+        file_name = tk.filedialog.askopenfilename(defaultextension=".txt",
                                                filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
         return file_name
 
@@ -176,18 +176,14 @@ class LcaUtils:
         if not isinstance(emg, np.ndarray):
             emg = np.array(emg)
 
-        emg_trial = pep.wrappers.EMGMeasurement(emg, hz=1000)
+        emg_trial = pyemgpipeline.wrappers.EMGMeasurement(emg, hz=1000)
 
-        # Remover offset DC
         emg_trial.remove_dc_offset()
 
-        # Aplicar filtro pasabanda
         emg_trial.apply_bandpass_filter(lowcut=20, highcut=500, order=4)
 
-        # Rectificación de onda completa
         emg_trial.apply_full_wave_rectification()
 
-        # Calcular la envolvente lineal
         emg_trial.apply_linear_envelope(lowcut=6, order=2)
 
         return emg_trial
@@ -538,8 +534,15 @@ class LcaWindow:
     def latency_show_stats_onclick(self):
         pass
 
+def main()->int:
+    file_name = LcaFile.ask_file_name()
+    if file_name == '':
+        return 1
+    else:
+        lca_data = LcaData(file_name)
+        lca_window = LcaWindow(lca_data)
+        lca_window.run()
+        return 0
 
-file_name = LcaFile.ask_file_name()
-lca_data = LcaData(file_name)
-lca_window = LcaWindow(lca_data)
-lca_window.run()
+if __name__ == '__main__':
+    sys.exit(main())
