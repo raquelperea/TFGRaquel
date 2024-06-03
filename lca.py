@@ -86,7 +86,11 @@ class LcaSignalUtils:
     @staticmethod
     def find_emg_peaks(time_data, emg_filtered, latency_postprocess_name, xlim):
         emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
-        return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, 0.06)
+        if latency_postprocess_name == 'gradient':
+            height = 0.01
+        else:
+            height = 0.06
+        return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, height)
 
     @staticmethod
     def filter_hammer(hammer):
@@ -176,7 +180,7 @@ class LcaSignalUtils:
         return sp.signal.savgol_filter(emg, window_length=45, polyorder=4)
 
     @staticmethod
-    def filter_chebyshev_type2(emg):
+    def filter_emg_chebyshev_type2(emg):
         cutoff_freq = 10  # Hz
         sampling_freq = 1000  # Hz
         stop_attenuation_db = 40  # dB
@@ -259,8 +263,8 @@ class LcaSignalUtils:
 
         return emg_trial
 
-    default_emg_filter_name = 'rolling_rms'
-    default_latency_postprocess_name = 'max'
+    DEFAULT_EMG_FILTER_NAME = 'rolling_rms'
+    DEFAULT_LATENCY_POSTPROCESS_NAME = 'max'
 
     @staticmethod
     def filter_emg(emg_raw, emg_filter_name):
@@ -268,7 +272,7 @@ class LcaSignalUtils:
             return emg_raw
 
         elif emg_filter_name == 'default':
-            return LcaSignalUtils.filter_emg(emg_raw, LcaSignalUtils.default_emg_filter_name)
+            return LcaSignalUtils.filter_emg(emg_raw, LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
 
         elif emg_filter_name == 'savgol':
             return LcaSignalUtils.filter_emg_savgol(emg_raw)
@@ -286,7 +290,7 @@ class LcaSignalUtils:
             return LcaSignalUtils.filter_emg_band_pass(emg_raw)
 
         elif emg_filter_name == 'chebyshev_type2':
-            return LcaSignalUtils.filter_chebyshev_type2(emg_raw)
+            return LcaSignalUtils.filter_emg_chebyshev_type2(emg_raw)
 
         elif emg_filter_name == 'notch':
             return LcaSignalUtils.filter_emg_notch(emg_raw)
@@ -329,8 +333,8 @@ class LcaData:
         self.peak_times_emg = None
         self.peak_values_emg = None
 
-        self.emg_filter_name = LcaSignalUtils.default_emg_filter_name
-        self.latency_postprocess_name = LcaSignalUtils.default_latency_postprocess_name
+        self.emg_filter_name = LcaSignalUtils.DEFAULT_EMG_FILTER_NAME
+        self.latency_postprocess_name = LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME
         self.apply_emg_filter(self.emg_filter_name, self.latency_postprocess_name)
 
     def apply_hammer_filter(self):
@@ -463,9 +467,9 @@ class LcaPlotWindow:
         self.show_emg_filtered_plot = tk.IntVar(value=1)
         self.show_emg_peaks_plot = tk.IntVar(value=1)
 
-        self.emg_filter_name = tk.StringVar(value=LcaSignalUtils.default_emg_filter_name)
+        self.emg_filter_name = tk.StringVar(value=LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
 
-        self.latency_postprocess_name = tk.StringVar(value=LcaSignalUtils.default_latency_postprocess_name)
+        self.latency_postprocess_name = tk.StringVar(value=LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME)
 
         self.create_root_window(self.root_window)
 
@@ -643,6 +647,7 @@ class LcaPlotWindow:
         event_key = event.key or ''
 
         if event_key.find('alt') >= 0:
+            # pan
             if event_key.find('shift') >= 0:
                 # vertical panning
                 x_pan_factor = 0
@@ -668,7 +673,7 @@ class LcaPlotWindow:
             new_ylim = (ylim[0] + y_pan, ylim[1] + y_pan)
 
         else:
-
+            # zoom
             if event_key.find('control') >= 0:
                 # full zoom
                 x_scale_factor = 1.5
@@ -691,14 +696,15 @@ class LcaPlotWindow:
 
             new_xlim = ([event.xdata - (event.xdata - xlim[0]) * x_scale,
                          event.xdata + (xlim[1] - event.xdata) * x_scale])
-
             new_ylim = ([event.ydata - (event.ydata - ylim[0]) * y_scale,
                          event.ydata + (ylim[1] - event.ydata) * y_scale])
 
-        self.lca_plot.hammer_axes.set_xlim(new_xlim[0], new_xlim[1])
-        self.lca_plot.emg_axes.set_xlim(new_xlim[0], new_xlim[1])
+        # set new limits
 
+        self.lca_plot.hammer_axes.set_xlim(new_xlim[0], new_xlim[1])
         self.lca_plot.hammer_axes.set_ylim(new_ylim[0] * 10, new_ylim[1] * 10)
+
+        self.lca_plot.emg_axes.set_xlim(new_xlim[0], new_xlim[1])
         self.lca_plot.emg_axes.set_ylim(new_ylim[0], new_ylim[1])
 
         self.canvas.draw_idle()
