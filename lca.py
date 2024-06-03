@@ -85,7 +85,7 @@ class LcaSignalUtils:
     def find_emg_peaks(time_data, emg_filtered, latency_postprocess_name, xlim):
         emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
         if latency_postprocess_name == 'gradient':
-            height = 0
+            height = 0.005
         else:
             height = 0.06
         return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, height)
@@ -262,7 +262,8 @@ class LcaSignalUtils:
 
         return emg_trial
 
-    DEFAULT_EMG_FILTER_NAME = 'rolling_rms'
+    # DEFAULT_EMG_FILTER_NAME = 'rolling_rms'
+    DEFAULT_EMG_FILTER_NAME = '-'
     DEFAULT_LATENCY_POSTPROCESS_NAME = 'max'
 
     @staticmethod
