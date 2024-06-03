@@ -15,7 +15,7 @@ import pyemgpipeline
 # from PIL import Image, ImageTk
 
 
-class FileUtils:
+class LcaFileUtils:
     @staticmethod
     def load_logo():
         return tk.PhotoImage(file="LOGO.png")
@@ -56,36 +56,37 @@ class FileUtils:
 
 
 # static methods for signal handling
-class LcaSignal:
+class LcaSignalUtils:
     @staticmethod
-    def find_peaks(xdata, ydata, ydata2, xlim, height):
+    def find_peaks(xdata, ydata, ydata_src, xlim, height):
         # Find indices in range
         if xlim is None:
             xrange = xdata
             yrange = ydata
-            yrange2 = ydata2
+            yrange_src = ydata_src
         else:
             irange = np.where((xdata >= xlim[0]) & (xdata <= xlim[1]))[0]
             # Find x's and y's in range
             xrange = np.array(xdata)[irange]
             yrange = np.array(ydata)[irange]
-            yrange2 = np.array(ydata2)[irange]
+            yrange_src = np.array(ydata_src)[irange]
 
-        # Find peaks with minimum height
+        # Find only peaks with a minimum height
         ipeaks, _ = sp.signal.find_peaks(yrange, height=height)
 
         xpeaks = [round(xrange[i], 3) for i in ipeaks]
-        ypeaks = [round(yrange2[i], 3) for i in ipeaks]
+        ypeaks = [round(yrange_src[i], 3) for i in ipeaks]
         return xpeaks, ypeaks
 
     @staticmethod
     def find_hammer_peaks(time_data, hammer_filtered, xlim):
-        return LcaSignal.find_peaks(time_data, hammer_filtered, hammer_filtered, xlim, 0.1)
+        height = 0.1
+        return LcaSignalUtils.find_peaks(time_data, hammer_filtered, hammer_filtered, xlim, height)
 
     @staticmethod
     def find_emg_peaks(time_data, emg_filtered, latency_postprocess_name, xlim):
-        emg_postprocessed = LcaSignal.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
-        return LcaSignal.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, 0.06)
+        emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
+        return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, 0.06)
 
     @staticmethod
     def filter_hammer(hammer):
@@ -110,7 +111,7 @@ class LcaSignal:
     @staticmethod
     def filter_emg_rolling_rms(emg):
         # return LcaUtils.rolling_rms_filter(emg, 10)
-        return LcaSignal.rolling_rms_filter(emg, 3)
+        return LcaSignalUtils.rolling_rms_filter(emg, 3)
         # return LcaUtils.rolling_rms_filter(rolling_rms_filter(emg, 3), 1)
         # return LcaUtils.rolling_rms_filter(emg, 2)
 
@@ -267,37 +268,37 @@ class LcaSignal:
             return emg_raw
 
         elif emg_filter_name == 'default':
-            return LcaSignal.filter_emg(emg_raw, LcaSignal.default_emg_filter_name)
+            return LcaSignalUtils.filter_emg(emg_raw, LcaSignalUtils.default_emg_filter_name)
 
         elif emg_filter_name == 'savgol':
-            return LcaSignal.filter_emg_savgol(emg_raw)
+            return LcaSignalUtils.filter_emg_savgol(emg_raw)
 
         elif emg_filter_name == 'rolling_rms':
-            return LcaSignal.filter_emg_rolling_rms(emg_raw)
+            return LcaSignalUtils.filter_emg_rolling_rms(emg_raw)
 
         elif emg_filter_name == 'high_pass':
-            return LcaSignal.filter_emg_high_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_high_pass(emg_raw)
 
         elif emg_filter_name == 'low_pass':
-            return LcaSignal.filter_emg_low_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_low_pass(emg_raw)
 
         elif emg_filter_name == 'band_pass':
-            return LcaSignal.filter_emg_band_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_band_pass(emg_raw)
 
         elif emg_filter_name == 'chebyshev_type2':
-            return LcaSignal.filter_chebyshev_type2(emg_raw)
+            return LcaSignalUtils.filter_chebyshev_type2(emg_raw)
 
         elif emg_filter_name == 'notch':
-            return LcaSignal.filter_emg_notch(emg_raw)
+            return LcaSignalUtils.filter_emg_notch(emg_raw)
 
         elif emg_filter_name == 'conventional':
-            return LcaSignal.filter_emg_conventional(emg_raw)
+            return LcaSignalUtils.filter_emg_conventional(emg_raw)
 
         elif emg_filter_name == 'pyemgpipeline':
-            return LcaSignal.filter_emg_pyemgpipeline(emg_raw)
+            return LcaSignalUtils.filter_emg_pyemgpipeline(emg_raw)
 
         elif emg_filter_name == 'gradient':
-            return LcaSignal.filter_emg_gradient(emg_raw)
+            return LcaSignalUtils.filter_emg_gradient(emg_raw)
 
     @staticmethod
     def postprocess_emg_filtered(emg_filtered, postprocess_emg_name):
@@ -316,7 +317,7 @@ class LcaData:
         self.file_name = file_name
         self.name = file_name.split('/')[-1].replace('.txt', '')
 
-        self.time_data, self.hammer_raw, self.emg_raw = FileUtils.read(file_name)
+        self.time_data, self.hammer_raw, self.emg_raw = LcaFileUtils.read(file_name)
 
         self.hammer_filtered = None
         self.hammer_time_emg = None
@@ -328,31 +329,32 @@ class LcaData:
         self.peak_times_emg = None
         self.peak_values_emg = None
 
-        self.emg_filter_name = LcaSignal.default_emg_filter_name
-        self.latency_postprocess_name = LcaSignal.default_latency_postprocess_name
+        self.emg_filter_name = LcaSignalUtils.default_emg_filter_name
+        self.latency_postprocess_name = LcaSignalUtils.default_latency_postprocess_name
         self.apply_emg_filter(self.emg_filter_name, self.latency_postprocess_name)
 
     def apply_hammer_filter(self):
-        self.hammer_filtered = LcaSignal.filter_hammer(self.hammer_raw)
-        self.peak_times_hammer, self.peak_values_hammer = LcaSignal.find_hammer_peaks(self.time_data,
-                                                                                      self.hammer_filtered,
-                                                                                      None)
+        self.hammer_filtered = LcaSignalUtils.filter_hammer(self.hammer_raw)
+        self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(self.time_data,
+                                                                                           self.hammer_filtered,
+                                                                                           None)
 
     def apply_emg_filter(self, emg_filter_name, latency_postprocess_name):
         self.emg_filter_name = emg_filter_name
-        self.emg_filtered = LcaSignal.filter_emg(self.emg_raw, emg_filter_name)
+        self.emg_filtered = LcaSignalUtils.filter_emg(self.emg_raw, emg_filter_name)
 
         self.apply_latency_postprocess(latency_postprocess_name)
 
     def apply_latency_postprocess(self, latency_postprocess_name):
         self.latency_postprocess_name = latency_postprocess_name
-        self.peak_times_emg, self.peak_values_emg = LcaSignal.find_emg_peaks(self.time_data, self.emg_filtered,
-                                                                             self.latency_postprocess_name, None)
+        self.peak_times_emg, self.peak_values_emg = LcaSignalUtils.find_emg_peaks(self.time_data, self.emg_filtered,
+                                                                                  self.latency_postprocess_name, None)
 
     def calc_stats_text(self, xlim):
-        peak_times_hammer, peak_values_hammer = LcaSignal.find_hammer_peaks(self.time_data, self.hammer_filtered, xlim)
-        peak_times_emg, peak_values_emg = LcaSignal.find_emg_peaks(self.time_data, self.emg_filtered,
-                                                                   self.latency_postprocess_name, xlim)
+        peak_times_hammer, peak_values_hammer = LcaSignalUtils.find_hammer_peaks(self.time_data, self.hammer_filtered,
+                                                                                 xlim)
+        peak_times_emg, peak_values_emg = LcaSignalUtils.find_emg_peaks(self.time_data, self.emg_filtered,
+                                                                        self.latency_postprocess_name, xlim)
 
         def calc_latency_row(peak_time_hammer, peak_value_hammer):
             latency_row = (peak_time_hammer, peak_value_hammer, None, None, None)
@@ -461,9 +463,9 @@ class LcaPlotWindow:
         self.show_emg_filtered_plot = tk.IntVar(value=1)
         self.show_emg_peaks_plot = tk.IntVar(value=1)
 
-        self.emg_filter_name = tk.StringVar(value=LcaSignal.default_emg_filter_name)
+        self.emg_filter_name = tk.StringVar(value=LcaSignalUtils.default_emg_filter_name)
 
-        self.latency_postprocess_name = tk.StringVar(value=LcaSignal.default_latency_postprocess_name)
+        self.latency_postprocess_name = tk.StringVar(value=LcaSignalUtils.default_latency_postprocess_name)
 
         self.create_root_window(self.root_window)
 
@@ -471,7 +473,7 @@ class LcaPlotWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency calculation app")
-        root_window.img = FileUtils.load_logo()
+        root_window.img = LcaFileUtils.load_logo()
         # window.iconphoto(False, window.img)
 
         menubar = self.create_menubar(root_window)
@@ -622,7 +624,7 @@ class LcaPlotWindow:
         self.root_window.mainloop()
 
     def file_open_onclick(self):
-        file_name = FileUtils.ask_open_txt_file_name()
+        file_name = LcaFileUtils.ask_open_txt_file_name()
         lca_data = LcaData(file_name)
         lca_plot_window = LcaPlotWindow(lca_data)
         lca_plot_window.run()
@@ -641,11 +643,7 @@ class LcaPlotWindow:
         event_key = event.key or ''
 
         if event_key.find('alt') >= 0:
-            if event_key.find('control'):
-                # fast horizontal panning
-                x_pan_factor = 0.5
-                y_pan_factor = 0
-            elif event_key.find('shift'):
+            if event_key.find('shift') >= 0:
                 # vertical panning
                 x_pan_factor = 0
                 y_pan_factor = 0.1
@@ -653,6 +651,11 @@ class LcaPlotWindow:
                 # horizontal panning
                 x_pan_factor = 0.1
                 y_pan_factor = 0
+
+            if event_key.find('control'):
+                # fast horizontal panning
+                x_pan_factor *= 5
+                y_pan_factor *= 5
 
             if event.button == 'up':
                 x_pan = -x_pan_factor * (xlim[1] - xlim[0])
@@ -666,11 +669,11 @@ class LcaPlotWindow:
 
         else:
 
-            if event_key.find('control'):
+            if event_key.find('control') >= 0:
                 # full zoom
                 x_scale_factor = 1.5
                 y_scale_factor = 1.5
-            elif event_key.find('shift'):
+            elif event_key.find('shift') >= 0:
                 # vertical zoom
                 x_scale_factor = 1.0
                 y_scale_factor = 1.5
@@ -742,7 +745,7 @@ class LcaStatsWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency statistics")
-        root_window.img = FileUtils.load_logo()
+        root_window.img = LcaFileUtils.load_logo()
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -776,7 +779,7 @@ class LcaStatsWindow:
         return file_menu
 
     def file_saveas_onclick(self):
-        file_name = FileUtils.ask_save_txt_file_name()
+        file_name = LcaFileUtils.ask_save_txt_file_name()
         if file_name:
             with open(file_name, "w") as file:
                 file.write(self.stats_text)
@@ -789,7 +792,7 @@ class LcaStatsWindow:
 
 
 def main() -> int:
-    file_name = FileUtils.ask_open_txt_file_name()
+    file_name = LcaFileUtils.ask_open_txt_file_name()
     if file_name == '':
         return 1
     else:
