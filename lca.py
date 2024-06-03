@@ -176,7 +176,7 @@ class LcaSignalUtils:
     @staticmethod
     def filter_emg_savgol(emg):
         # return sp.signal.savgol_filter(emg, window_length=45, polyorder=4)
-        return sp.signal.savgol_filter(emg, window_length=10, polyorder=3)
+        return sp.signal.savgol_filter(emg, window_length=11, polyorder=3)
 
     @staticmethod
     def filter_emg_chebyshev_type2(emg):
