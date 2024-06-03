@@ -363,7 +363,7 @@ class LcaData:
         self.emg_preprocessed = self.emg_raw
         self.set_emg_filter('-')
 
-    def apply_emg_filter(self):
+    def apply_current_emg_filter(self):
         self.emg_preprocessed = self.emg_filtered
         self.set_emg_filter('-')
 
