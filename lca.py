@@ -87,7 +87,7 @@ class LcaSignalUtils:
     def find_emg_peaks(time_data, emg_filtered, latency_postprocess_name, xlim):
         emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
         if latency_postprocess_name == 'gradient':
-            height = 0.01
+            height = 0
         else:
             height = 0.06
         return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, height)
@@ -259,6 +259,7 @@ class LcaSignalUtils:
 
         # emg_trial.apply_full_wave_rectification()
 
+        # TypeError: EMGMeasurement.apply_linear_envelope() got an unexpected keyword argument 'lowcut'
         emg_trial.apply_linear_envelope(lowcut=6, order=2)
 
         return emg_trial
@@ -267,42 +268,42 @@ class LcaSignalUtils:
     DEFAULT_LATENCY_POSTPROCESS_NAME = 'max'
 
     @staticmethod
-    def filter_emg(emg_raw, emg_filter_name):
+    def filter_emg(emg, emg_filter_name):
         if emg_filter_name == 'raw':
-            return emg_raw
+            return emg
 
         elif emg_filter_name == 'default':
-            return LcaSignalUtils.filter_emg(emg_raw, LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
+            return LcaSignalUtils.filter_emg(emg, LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
 
         elif emg_filter_name == 'savgol':
-            return LcaSignalUtils.filter_emg_savgol(emg_raw)
+            return LcaSignalUtils.filter_emg_savgol(emg)
 
         elif emg_filter_name == 'rolling_rms':
-            return LcaSignalUtils.filter_emg_rolling_rms(emg_raw)
+            return LcaSignalUtils.filter_emg_rolling_rms(emg)
 
         elif emg_filter_name == 'high_pass':
-            return LcaSignalUtils.filter_emg_high_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_high_pass(emg)
 
         elif emg_filter_name == 'low_pass':
-            return LcaSignalUtils.filter_emg_low_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_low_pass(emg)
 
         elif emg_filter_name == 'band_pass':
-            return LcaSignalUtils.filter_emg_band_pass(emg_raw)
+            return LcaSignalUtils.filter_emg_band_pass(emg)
 
         elif emg_filter_name == 'chebyshev_type2':
-            return LcaSignalUtils.filter_emg_chebyshev_type2(emg_raw)
+            return LcaSignalUtils.filter_emg_chebyshev_type2(emg)
 
         elif emg_filter_name == 'notch':
-            return LcaSignalUtils.filter_emg_notch(emg_raw)
+            return LcaSignalUtils.filter_emg_notch(emg)
 
         elif emg_filter_name == 'conventional':
-            return LcaSignalUtils.filter_emg_conventional(emg_raw)
+            return LcaSignalUtils.filter_emg_conventional(emg)
 
         elif emg_filter_name == 'pyemgpipeline':
-            return LcaSignalUtils.filter_emg_pyemgpipeline(emg_raw)
+            return LcaSignalUtils.filter_emg_pyemgpipeline(emg)
 
         elif emg_filter_name == 'gradient':
-            return LcaSignalUtils.filter_emg_gradient(emg_raw)
+            return LcaSignalUtils.filter_emg_gradient(emg)
 
     @staticmethod
     def postprocess_emg_filtered(emg_filtered, postprocess_emg_name):
@@ -324,10 +325,10 @@ class LcaData:
         self.time_data, self.hammer_raw, self.emg_raw = LcaFileUtils.read(file_name)
 
         self.hammer_filtered = None
-        self.hammer_time_emg = None
-        self.hammer_value_emg = None
 
-        self.apply_hammer_filter()
+        self.set_hammer_filter()
+        self.peak_times_hammer = None
+        self.peak_values_hammer = None
 
         self.emg_filtered = None
         self.peak_times_emg = None
@@ -335,39 +336,46 @@ class LcaData:
 
         self.emg_filter_name = LcaSignalUtils.DEFAULT_EMG_FILTER_NAME
         self.latency_postprocess_name = LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME
-        self.apply_emg_filter(self.emg_filter_name, self.latency_postprocess_name)
+        self.set_emg_filter(self.emg_filter_name)
 
-    def apply_hammer_filter(self):
+    def set_hammer_filter(self):
         self.hammer_filtered = LcaSignalUtils.filter_hammer(self.hammer_raw)
-        self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(self.time_data,
-                                                                                           self.hammer_filtered,
-                                                                                           None)
+        self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
+            self.time_data, self.hammer_filtered, None)
 
-    def apply_emg_filter(self, emg_filter_name, latency_postprocess_name):
+    def set_emg_filter(self, emg_filter_name):
         self.emg_filter_name = emg_filter_name
         self.emg_filtered = LcaSignalUtils.filter_emg(self.emg_raw, emg_filter_name)
 
-        self.apply_latency_postprocess(latency_postprocess_name)
+        self.set_latency_postprocess(self.latency_postprocess_name)
 
-    def apply_latency_postprocess(self, latency_postprocess_name):
+    def set_latency_postprocess(self, latency_postprocess_name):
         self.latency_postprocess_name = latency_postprocess_name
-        self.peak_times_emg, self.peak_values_emg = LcaSignalUtils.find_emg_peaks(self.time_data, self.emg_filtered,
-                                                                                  self.latency_postprocess_name, None)
+        self.peak_times_emg, self.peak_values_emg = LcaSignalUtils.find_emg_peaks(
+            self.time_data, self.emg_filtered, self.latency_postprocess_name, None)
+
+    def apply_emg_filter(self, new_emg_filter_name):
+        self.emg_raw = self.emg_filtered
+        self.set_emg_filter(new_emg_filter_name)
 
     def calc_stats_text(self, xlim):
-        peak_times_hammer, peak_values_hammer = LcaSignalUtils.find_hammer_peaks(self.time_data, self.hammer_filtered,
-                                                                                 xlim)
-        peak_times_emg, peak_values_emg = LcaSignalUtils.find_emg_peaks(self.time_data, self.emg_filtered,
-                                                                        self.latency_postprocess_name, xlim)
+        peak_times_hammer, peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
+            self.time_data, self.hammer_filtered, xlim)
+        peak_times_emg, peak_values_emg = LcaSignalUtils.find_emg_peaks(
+            self.time_data, self.emg_filtered, self.latency_postprocess_name, xlim)
 
         def calc_latency_row(peak_time_hammer, peak_value_hammer):
             latency_row = (peak_time_hammer, peak_value_hammer, None, None, None)
             max_peak_values_emg = 0
             for i, peak_time_emg in enumerate(peak_times_emg):
+                # only in range 0 to 500 ms
                 if peak_time_hammer < peak_time_emg and peak_time_emg <= peak_time_hammer + 0.5:
                     if peak_values_emg[i] > max_peak_values_emg:
-                        latency_row = (peak_time_hammer, peak_value_hammer, peak_time_emg, peak_values_emg[i],
-                                       round(peak_time_emg - peak_time_hammer, 3))
+                        latency_row = (peak_time_hammer,
+                                       peak_value_hammer,
+                                       peak_time_emg,
+                                       peak_values_emg[i],
+                                       round((peak_time_emg - peak_time_hammer) * 1000, 1))
                         max_peak_values_emg = peak_values_emg[i]
             return latency_row
 
@@ -379,7 +387,7 @@ class LcaData:
             "Value (V)": list(map(lambda row: row[1], latency_table)),
             "EMG peaks (s)": list(map(lambda row: row[2], latency_table)),
             "Value (mV)": list(map(lambda row: row[3], latency_table)),
-            "Latency (s)": list(map(lambda row: row[4], latency_table))
+            "Latency (ms)": list(map(lambda row: row[4], latency_table))
         }, headers='keys', tablefmt='pretty', showindex=False)
 
         valid_latencies = list(
@@ -437,16 +445,24 @@ class LcaPlot:
         self.hammer_axes.set_ylim(self.initial_ylim[0] * 10, self.initial_ylim[1] * 10)
         self.emg_axes.set_ylim(self.initial_ylim)
 
-    def apply_emg_filter(self, emg_filter_name, latency_postprocess_name):
-        self.lca_data.apply_emg_filter(emg_filter_name, latency_postprocess_name)
+    def set_emg_filter(self, emg_filter_name):
+        self.lca_data.set_emg_filter(emg_filter_name)
 
         self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
         self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
         self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
 
-    def apply_latency_postprocess(self, latency_postprocess_name):
-        self.lca_data.apply_latency_postprocess(latency_postprocess_name)
+    def set_latency_postprocess(self, latency_postprocess_name):
+        self.lca_data.set_latency_postprocess(latency_postprocess_name)
 
+        self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
+        self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
+
+    def apply_emg_filter(self, new_emg_filter_name):
+        self.lca_data.apply_emg_filter(new_emg_filter_name)
+
+        self.emg_raw_plot.set_ydata(self.lca_data.emg_raw)
+        self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
         self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
         self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
 
@@ -514,8 +530,8 @@ class LcaPlotWindow:
         view_menu = self.create_view_menu(menubar)
         menubar.add_cascade(label="View", menu=view_menu)
 
-        filter_menu = self.create_filter_menu(menubar)
-        menubar.add_cascade(label="Filter", menu=filter_menu)
+        emg_filter_menu = self.create_emg_filter_menu(menubar)
+        menubar.add_cascade(label="Filter", menu=emg_filter_menu)
 
         latency_menu = self.create_latency_menu(menubar)
         menubar.add_cascade(label="Latency", menu=latency_menu)
@@ -555,44 +571,48 @@ class LcaPlotWindow:
 
         return view_menu
 
-    def create_filter_menu(self, menubar):
-        filter_menu = tk.Menu(menubar, tearoff=False)
+    def create_emg_filter_menu(self, menubar):
+        emg_filter_menu = tk.Menu(menubar, tearoff=False)
 
-        filter_menu.add_radiobutton(label="Raw signal", variable=self.emg_filter_name,
-                                    value='raw', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Raw signal", variable=self.emg_filter_name,
+                                        value='raw', command=self.emg_filter_name_onchanged)
         # filter_menu.add_radiobutton(label="Default filter (rolling RMS)", variable=self.emg_filter_name,
         #                             value='default', command=self.emg_filter_name_onchanged)
 
-        filter_menu.add_separator()
+        # filter_menu.add_separator()
 
-        filter_menu.add_radiobutton(label="Rolling RMS filter", variable=self.emg_filter_name,
-                                    value='rolling_rms', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="Savitzky–Golay filter", variable=self.emg_filter_name,
-                                    value='savgol', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="High-pass filter", variable=self.emg_filter_name,
-                                    value='high_pass', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="Low-pass filter", variable=self.emg_filter_name,
-                                    value='low_pass', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="Band-pass filter", variable=self.emg_filter_name,
-                                    value='band_pass', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="Chebyshev (type2) filter", variable=self.emg_filter_name,
-                                    value='chebyshev_type2', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="Notch filter", variable=self.emg_filter_name,
-                                    value='notch', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Rolling RMS filter", variable=self.emg_filter_name,
+                                        value='rolling_rms', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Savitzky–Golay filter", variable=self.emg_filter_name,
+                                        value='savgol', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="High-pass filter", variable=self.emg_filter_name,
+                                        value='high_pass', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Low-pass filter", variable=self.emg_filter_name,
+                                        value='low_pass', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Band-pass filter", variable=self.emg_filter_name,
+                                        value='band_pass', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) filter", variable=self.emg_filter_name,
+                                        value='chebyshev_type2', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Notch filter", variable=self.emg_filter_name,
+                                        value='notch', command=self.emg_filter_name_onchanged)
 
-        filter_menu.add_separator()
+        # filter_menu.add_separator()
 
-        filter_menu.add_radiobutton(label="Conventional EMG processing", variable=self.emg_filter_name,
-                                    value='conventional', command=self.emg_filter_name_onchanged)
-        filter_menu.add_radiobutton(label="pyemgpipeline EMG processing", variable=self.emg_filter_name,
-                                    value='pyemgpipeline', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Conventional EMG processing", variable=self.emg_filter_name,
+                                        value='conventional', command=self.emg_filter_name_onchanged)
+        # filter_menu.add_radiobutton(label="pyemgpipeline EMG processing", variable=self.emg_filter_name,
+        #                             value='pyemgpipeline', command=self.emg_filter_name_onchanged)
 
         # filter_menu.add_separator()
         #
         # filter_menu.add_radiobutton(label="Gradient", variable=self.emg_filter_name,
         #                             value='gradient', command=self.emg_filter_name_onchanged)
 
-        return filter_menu
+        emg_filter_menu.add_separator()
+
+        emg_filter_menu.add_command(label="Apply filter", command=self.emg_filter_apply_onclick)
+
+        return emg_filter_menu
 
     def create_latency_menu(self, menubar):
         latency_menu = tk.Menu(menubar, tearoff=False)
@@ -640,7 +660,7 @@ class LcaPlotWindow:
         self.refresh_plot()
 
     def canvas_onmousescroll(self, event):
-        # get the current x and y limits
+        # get current x and y limits
         xlim = self.lca_plot.emg_axes.get_xlim()
         ylim = self.lca_plot.emg_axes.get_ylim()
 
@@ -657,7 +677,7 @@ class LcaPlotWindow:
                 x_pan_factor = 0.1
                 y_pan_factor = 0
 
-            if event_key.find('control'):
+            if event_key.find('control') >= 0:
                 # fast horizontal panning
                 x_pan_factor *= 5
                 y_pan_factor *= 5
@@ -727,11 +747,16 @@ class LcaPlotWindow:
         self.canvas.draw_idle()
 
     def emg_filter_name_onchanged(self):
-        self.lca_plot.apply_emg_filter(self.emg_filter_name.get(), self.latency_postprocess_name.get())
+        self.lca_plot.set_emg_filter(self.emg_filter_name.get())
+        self.canvas.draw_idle()
+
+    def emg_filter_apply_onclick(self):
+        self.lca_plot.apply_emg_filter('raw')
+        self.emg_filter_name.set('raw')
         self.canvas.draw_idle()
 
     def latency_postprocess_name_onchanged(self):
-        self.lca_plot.apply_latency_postprocess(self.latency_postprocess_name.get())
+        self.lca_plot.set_latency_postprocess(self.latency_postprocess_name.get())
         self.canvas.draw_idle()
 
     def latency_show_stats_onclick(self):
