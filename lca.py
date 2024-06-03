@@ -112,10 +112,9 @@ class LcaSignalUtils:
 
     @staticmethod
     def filter_emg_rolling_rms(emg):
-        # return LcaUtils.rolling_rms_filter(emg, 10)
-        return LcaSignalUtils.rolling_rms_filter(emg, 3)
-        # return LcaUtils.rolling_rms_filter(rolling_rms_filter(emg, 3), 1)
-        # return LcaUtils.rolling_rms_filter(emg, 2)
+        return LcaSignalUtils.rolling_rms_filter(emg, 2)
+        # return LcaSignalUtils.rolling_rms_filter(emg, 3)
+        # return LcaSignalUtils.rolling_rms_filter(rolling_rms_filter(emg, 3), 1)
 
     @staticmethod
     def filter_emg_gradient(emg):
@@ -363,7 +362,7 @@ class LcaData:
 
     def reset_emg_preprocessed(self):
         self.emg_preprocessed = self.emg_raw
-        self.set_emg_filter('-')
+        self.set_emg_filter(self.emg_filter_name)
 
     def apply_current_emg_filter(self):
         self.emg_preprocessed = self.emg_filtered
