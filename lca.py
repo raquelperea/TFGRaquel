@@ -175,7 +175,8 @@ class LcaSignalUtils:
 
     @staticmethod
     def filter_emg_savgol(emg):
-        return sp.signal.savgol_filter(emg, window_length=45, polyorder=4)
+        # return sp.signal.savgol_filter(emg, window_length=45, polyorder=4)
+        return sp.signal.savgol_filter(emg, window_length=10, polyorder=3)
 
     @staticmethod
     def filter_emg_chebyshev_type2(emg):
@@ -509,16 +510,16 @@ class LcaPlotWindow:
         self.canvas = None
 
         # self.show_hammer_raw_plot = tk.IntVar(value=0)
-        self.show_hammer_filtered_plot = tk.IntVar(value=1)
-        self.show_hammer_peaks_plot = tk.IntVar(value=1)
-        self.show_emg_raw_plot = tk.IntVar(value=1)
-        self.show_emg_preprocessed_plot = tk.IntVar(value=1)
-        self.show_emg_filtered_plot = tk.IntVar(value=1)
-        self.show_emg_peaks_plot = tk.IntVar(value=1)
+        self.show_hammer_filtered_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_hammer_peaks_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_emg_raw_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_emg_preprocessed_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_emg_filtered_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_emg_peaks_plot = tk.IntVar(master = self.root_window, value=1)
 
-        self.emg_filter_name = tk.StringVar(value=LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
+        self.emg_filter_name = tk.StringVar(master = self.root_window, value=LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
 
-        self.latency_postprocess_name = tk.StringVar(value=LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME)
+        self.latency_postprocess_name = tk.StringVar(master = self.root_window, value=LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME)
 
         self.create_root_window(self.root_window)
 
