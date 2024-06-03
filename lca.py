@@ -1,5 +1,7 @@
 import sys
 import tkinter as tk
+
+import matplotlib.backend_bases
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from tabulate import tabulate
 
@@ -16,10 +18,6 @@ import pyemgpipeline
 
 
 class LcaFileUtils:
-    @staticmethod
-    def load_logo():
-        return tk.PhotoImage(file="LOGO.png")
-
     @staticmethod
     def ask_open_txt_file_name():
         file_name = tk.filedialog.askopenfilename(defaultextension=".txt",
@@ -269,7 +267,7 @@ class LcaSignalUtils:
 
     @staticmethod
     def filter_emg(emg, emg_filter_name):
-        if emg_filter_name == 'raw':
+        if emg_filter_name == '-':
             return emg
 
         elif emg_filter_name == 'default':
@@ -322,17 +320,24 @@ class LcaData:
         self.file_name = file_name
         self.name = file_name.split('/')[-1].replace('.txt', '')
 
-        self.time_data, self.hammer_raw, self.emg_raw = LcaFileUtils.read(file_name)
+        self.time_data = None
 
+        self.hammer_raw = None
         self.hammer_filtered = None
-
-        self.set_hammer_filter()
         self.peak_times_hammer = None
         self.peak_values_hammer = None
 
+        self.emg_raw = None
+        self.emg_preprocessed = None
         self.emg_filtered = None
         self.peak_times_emg = None
         self.peak_values_emg = None
+
+        self.time_data, self.hammer_raw, self.emg_raw = LcaFileUtils.read(file_name)
+
+        self.emg_preprocessed = self.emg_raw
+
+        self.set_hammer_filter()
 
         self.emg_filter_name = LcaSignalUtils.DEFAULT_EMG_FILTER_NAME
         self.latency_postprocess_name = LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME
@@ -345,7 +350,7 @@ class LcaData:
 
     def set_emg_filter(self, emg_filter_name):
         self.emg_filter_name = emg_filter_name
-        self.emg_filtered = LcaSignalUtils.filter_emg(self.emg_raw, emg_filter_name)
+        self.emg_filtered = LcaSignalUtils.filter_emg(self.emg_preprocessed, emg_filter_name)
 
         self.set_latency_postprocess(self.latency_postprocess_name)
 
@@ -354,9 +359,13 @@ class LcaData:
         self.peak_times_emg, self.peak_values_emg = LcaSignalUtils.find_emg_peaks(
             self.time_data, self.emg_filtered, self.latency_postprocess_name, None)
 
-    def apply_emg_filter(self, new_emg_filter_name):
-        self.emg_raw = self.emg_filtered
-        self.set_emg_filter(new_emg_filter_name)
+    def reset_emg_preprocessed(self):
+        self.emg_preprocessed = self.emg_raw
+        self.set_emg_filter('-')
+
+    def apply_emg_filter(self):
+        self.emg_preprocessed = self.emg_filtered
+        self.set_emg_filter('-')
 
     def calc_stats_text(self, xlim):
         peak_times_hammer, peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
@@ -403,7 +412,12 @@ class LcaPlot:
     def __init__(self, lca_data):
         self.lca_data = lca_data
 
+        # self.figure, self.base_axes = plt.subplots(figsize=(10, 3.7))
+        # self.hammer_axes = self.base_axes.twinx()
+        # self.emg_axes = self.hammer_axes.twinx()
+
         self.figure, self.hammer_axes = plt.subplots(figsize=(10, 3.7))
+        self.emg_axes = self.hammer_axes.twinx()
 
         self.hammer_axes.set_title(lca_data.name)
         self.hammer_axes.grid(True, linestyle='--', alpha=0.7)
@@ -411,7 +425,6 @@ class LcaPlot:
         self.hammer_axes.set_ylabel("Hammer signal (V)", color='red')
         self.hammer_axes.tick_params(axis='y', labelcolor='red')
 
-        self.emg_axes = self.hammer_axes.twinx()
         self.emg_axes.set_ylabel("EMG signal (mV)", color='blue')
         self.emg_axes.tick_params(axis='y', labelcolor='blue')
 
@@ -421,27 +434,36 @@ class LcaPlot:
         self.hammer_peaks_plot, = self.hammer_axes.plot(self.lca_data.peak_times_hammer,
                                                         self.lca_data.peak_values_hammer,
                                                         'ro', markerfacecolor='none', markeredgecolor='red',
-                                                        label="Hammer peak", alpha=0.7)
+                                                        label="Hammer peaks", alpha=0.7)
 
         self.emg_raw_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_raw,
-                                                label="EMG", color='blue', linewidth=1, alpha=0.4)
+                                                label="EMG raw", color='blue', linewidth=1, alpha=0.2)
+        self.emg_preprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_preprocessed,
+                                                         label="EMG preprocessed", color='blue', linewidth=1, alpha=0.4)
         self.emg_filtered_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_filtered,
                                                      label="EMG filtered", color='blue', linewidth=1, alpha=0.7)
         self.emg_peak_plot, = self.emg_axes.plot(self.lca_data.peak_times_emg, self.lca_data.peak_values_emg,
                                                  'bo', markerfacecolor='none', markeredgecolor='blue',
-                                                 label="EMG peak", alpha=0.7)
+                                                 label="EMG peaks", alpha=0.7)
 
         self.initial_xlim = self.emg_axes.get_xlim()
         ylim_hammer = self.hammer_axes.get_ylim()
         ylim_emg = self.emg_axes.get_ylim()
         self.initial_ylim = (min(ylim_hammer[0] / 10, ylim_emg[0]), max(ylim_hammer[1] / 10, ylim_emg[1]))
 
+        # self.time_range = matplotlib.widgets.RangeSlider(self.base_axes, "Selection", self.initial_xlim[0], self.initial_xlim[1])
+        # # self.time_range.set_min(self.initial_xlim[0])
+        # # self.time_range.set_max(self.initial_xlim[1])
+        # self.time_range.set_val((self.initial_xlim[0], self.initial_xlim[1]))
+
         self.reset_zoom()
 
     def reset_zoom(self):
+        # self.base_axes.set_xlim(self.initial_xlim)
         self.hammer_axes.set_xlim(self.initial_xlim)
         self.emg_axes.set_xlim(self.initial_xlim)
 
+        # self.base_axes.set_ylim(self.initial_ylim[0], self.initial_ylim[1])
         self.hammer_axes.set_ylim(self.initial_ylim[0] * 10, self.initial_ylim[1] * 10)
         self.emg_axes.set_ylim(self.initial_ylim)
 
@@ -458,10 +480,18 @@ class LcaPlot:
         self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
         self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
 
-    def apply_emg_filter(self, new_emg_filter_name):
-        self.lca_data.apply_emg_filter(new_emg_filter_name)
+    def reset_emg_preprocessed(self):
+        self.lca_data.reset_emg_preprocessed()
 
-        self.emg_raw_plot.set_ydata(self.lca_data.emg_raw)
+        self.emg_preprocessed_plot.set_ydata(self.lca_data.emg_preprocessed)
+        self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
+        self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
+        self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
+
+    def apply_current_emg_filter(self):
+        self.lca_data.apply_current_emg_filter()
+
+        self.emg_preprocessed_plot.set_ydata(self.lca_data.emg_preprocessed)
         self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
         self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
         self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
@@ -475,11 +505,13 @@ class LcaPlotWindow:
 
         # Cannot create variables before root_window is created
         self.root_window = tk.Tk()
+        self.canvas = None
 
-        self.show_hammer_raw_plot = tk.IntVar(value=0)
+        # self.show_hammer_raw_plot = tk.IntVar(value=0)
         self.show_hammer_filtered_plot = tk.IntVar(value=1)
         self.show_hammer_peaks_plot = tk.IntVar(value=1)
         self.show_emg_raw_plot = tk.IntVar(value=1)
+        self.show_emg_preprocessed_plot = tk.IntVar(value=1)
         self.show_emg_filtered_plot = tk.IntVar(value=1)
         self.show_emg_peaks_plot = tk.IntVar(value=1)
 
@@ -493,8 +525,7 @@ class LcaPlotWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency calculation app")
-        root_window.img = LcaFileUtils.load_logo()
-        # window.iconphoto(False, window.img)
+        root_window.iconbitmap(r"LOGO.ico")
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -533,6 +564,9 @@ class LcaPlotWindow:
         emg_filter_menu = self.create_emg_filter_menu(menubar)
         menubar.add_cascade(label="Filter", menu=emg_filter_menu)
 
+        emg_preprocess_menu = self.create_emg_preprocess_menu(menubar)
+        menubar.add_cascade(label="Preprocess", menu=emg_preprocess_menu)
+
         latency_menu = self.create_latency_menu(menubar)
         menubar.add_cascade(label="Latency", menu=latency_menu)
 
@@ -551,19 +585,21 @@ class LcaPlotWindow:
         view_menu = tk.Menu(menubar, tearoff=False)
 
         # self.view_menu.add_checkbutton(label="Hammer (raw)", variable=self.show_hammer_raw_plot,
-        #                                command=self.show_plot_onchanged)
+        #                                command=self.show_any_plot_onchanged)
         # self.view_menu.add_checkbutton(label="Hammer (filtered)", variable=self.show_hammer_filtered_plot,
-        #                                command=self.show_plot_onchanged)
+        #                                command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="Hammer", variable=self.show_hammer_filtered_plot,
-                                  command=self.show_plot_onchanged)
+                                  command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="Hammer peaks", variable=self.show_hammer_peaks_plot,
-                                  command=self.show_plot_onchanged)
+                                  command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG (raw)", variable=self.show_emg_raw_plot,
-                                  command=self.show_plot_onchanged)
+                                  command=self.show_any_plot_onchanged)
+        view_menu.add_checkbutton(label="EMG (signal)", variable=self.show_emg_preprocessed_plot,
+                                  command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG (filtered)", variable=self.show_emg_filtered_plot,
-                                  command=self.show_plot_onchanged)
+                                  command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG peaks", variable=self.show_emg_peaks_plot,
-                                  command=self.show_plot_onchanged)
+                                  command=self.show_any_plot_onchanged)
 
         view_menu.add_separator()
 
@@ -574,8 +610,8 @@ class LcaPlotWindow:
     def create_emg_filter_menu(self, menubar):
         emg_filter_menu = tk.Menu(menubar, tearoff=False)
 
-        emg_filter_menu.add_radiobutton(label="Raw signal", variable=self.emg_filter_name,
-                                        value='raw', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="No filter", variable=self.emg_filter_name,
+                                        value='-', command=self.emg_filter_name_onchanged)
         # filter_menu.add_radiobutton(label="Default filter (rolling RMS)", variable=self.emg_filter_name,
         #                             value='default', command=self.emg_filter_name_onchanged)
 
@@ -608,22 +644,27 @@ class LcaPlotWindow:
         # filter_menu.add_radiobutton(label="Gradient", variable=self.emg_filter_name,
         #                             value='gradient', command=self.emg_filter_name_onchanged)
 
-        emg_filter_menu.add_separator()
-
-        emg_filter_menu.add_command(label="Apply filter", command=self.emg_filter_apply_onclick)
-
         return emg_filter_menu
+
+    def create_emg_preprocess_menu(self, menubar):
+        emg_preprocess_menu = tk.Menu(menubar, tearoff=False)
+
+        emg_preprocess_menu.add_command(label="Apply selected filter", command=self.emg_preprocess_apply_current_filter_onclick)
+
+        emg_preprocess_menu.add_command(label="Reset to raw signal", command=self.emg_preprocess_reset_onclick)
+
+        return emg_preprocess_menu
 
     def create_latency_menu(self, menubar):
         latency_menu = tk.Menu(menubar, tearoff=False)
 
-        latency_menu.add_radiobutton(label="Only maximums", variable=self.latency_postprocess_name,
+        latency_menu.add_radiobutton(label="Use only maximums", variable=self.latency_postprocess_name,
                                      value='max', command=self.latency_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Only minimums", variable=self.latency_postprocess_name,
+        latency_menu.add_radiobutton(label="Use only minimums", variable=self.latency_postprocess_name,
                                      value='min', command=self.latency_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Maximums+minimums", variable=self.latency_postprocess_name,
+        latency_menu.add_radiobutton(label="Use maximums & minimums", variable=self.latency_postprocess_name,
                                      value='max+min', command=self.latency_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Gradient", variable=self.latency_postprocess_name,
+        latency_menu.add_radiobutton(label="Use gradient", variable=self.latency_postprocess_name,
                                      value='gradient', command=self.latency_postprocess_name_onchanged)
 
         latency_menu.add_separator()
@@ -656,7 +697,7 @@ class LcaPlotWindow:
     def file_close_onclick(self):
         self.root_window.destroy()
 
-    def show_plot_onchanged(self):
+    def show_any_plot_onchanged(self):
         self.refresh_plot()
 
     def canvas_onmousescroll(self, event):
@@ -736,6 +777,7 @@ class LcaPlotWindow:
         self.lca_plot.hammer_axes.legend()
 
         self.lca_plot.emg_raw_plot.set_visible(self.show_emg_raw_plot.get())
+        self.lca_plot.emg_preprocessed_plot.set_visible(self.show_emg_preprocessed_plot.get())
         self.lca_plot.emg_filtered_plot.set_visible(self.show_emg_filtered_plot.get())
         self.lca_plot.emg_peak_plot.set_visible(self.show_emg_peaks_plot.get())
         self.lca_plot.emg_axes.legend()
@@ -750,9 +792,13 @@ class LcaPlotWindow:
         self.lca_plot.set_emg_filter(self.emg_filter_name.get())
         self.canvas.draw_idle()
 
-    def emg_filter_apply_onclick(self):
-        self.lca_plot.apply_emg_filter('raw')
-        self.emg_filter_name.set('raw')
+    def emg_preprocess_reset_onclick(self):
+        self.lca_plot.reset_emg_preprocessed()
+        self.canvas.draw_idle()
+
+    def emg_preprocess_apply_current_filter_onclick(self):
+        self.lca_plot.apply_current_emg_filter()
+        self.emg_filter_name.set('-')
         self.canvas.draw_idle()
 
     def latency_postprocess_name_onchanged(self):
@@ -776,7 +822,7 @@ class LcaStatsWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency statistics")
-        root_window.img = LcaFileUtils.load_logo()
+        root_window.iconbitmap(r"LOGO.ico")
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
