@@ -404,7 +404,7 @@ class LcaData:
             filter(lambda latency: latency is not None, list(map(lambda latency_row: latency_row[4], latency_table))))
         mean_latency = np.mean(valid_latencies)
         if not np.isnan(mean_latency):
-            stats_text += f"\nMean latency: {mean_latency * 1000:.3f} ms"
+            stats_text += f"\nMean latency: {mean_latency:.1f} ms"
 
         return stats_text
 
