@@ -385,7 +385,7 @@ class LcaData:
                                        peak_value_hammer,
                                        peak_time_emg,
                                        peak_values_emg[i],
-                                       round((peak_time_emg - peak_time_hammer) * 1000, 1))
+                                       round((peak_time_emg - peak_time_hammer) * 1000, 0))
                         max_peak_values_emg = peak_values_emg[i]
             return latency_row
 
