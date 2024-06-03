@@ -618,7 +618,7 @@ subMenu_filter.add_radiobutton(label='Notch filter', variable=emg_filter, value=
 subMenu_filter.add_radiobutton(label='Processed emg', variable=emg_filter, value='process',
                                command=actualizar_emg_filter)
 
-logo = tk.PhotoImage(file="LOGO.png")
+logo = tk.PhotoImage(file="lca.png")
 ventana.iconphoto(True, logo)
 
 ventana.mainloop()

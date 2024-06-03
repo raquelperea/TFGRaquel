@@ -525,7 +525,7 @@ class LcaPlotWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency calculation app")
-        root_window.iconbitmap(r"LOGO.ico")
+        root_window.iconbitmap(r"lca.ico")
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -822,7 +822,7 @@ class LcaStatsWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency statistics")
-        root_window.iconbitmap(r"LOGO.ico")
+        root_window.iconbitmap(r"lca.ico")
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
