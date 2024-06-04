@@ -164,7 +164,7 @@ class LcaSignalUtils:
 
     ####################################################################################################################
 
-    FILTER_ORDER = 6
+    FILTER_ORDER = 2
 
     HIGH_CUTOFF_FREQ = 60  # Hz
     LOW_CUTOFF_FREQ = 30  # Hz
