@@ -265,16 +265,17 @@ class LcaSignalUtils:
 
     NOTCH_FREQ = 50.0  # Frequency to be removed (notch frequency)
     NOTCH_BANDWIDTH = 2.0  # Bandwidth of the notch in Hz
-    NOTCH_ATTENUATION = 20  # Desired attenuation at 50 Hz in dB
+    # NOTCH_ATTENUATION = 20  # Desired attenuation at 50 Hz in dB
 
     @staticmethod
     def filter_notch_filtfilt(signal):
+        # Quality factor (adjust as needed)
         Q = LcaSignalUtils.NOTCH_FREQ / LcaSignalUtils.NOTCH_BANDWIDTH
         # Design the notch filter
         b, a = sp.signal.iirnotch(LcaSignalUtils.NOTCH_FREQ, Q, LcaSignalUtils.SAMPLING_FREQ)
-        # Adjust the gain to achieve the desired attenuation
-        gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
-        b *= gain
+        # # Adjust the gain to achieve the desired attenuation
+        # gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
+        # b *= gain
 
         filtered_emg = sp.signal.filtfilt(b, a, signal)
 
@@ -285,9 +286,9 @@ class LcaSignalUtils:
         Q = LcaSignalUtils.NOTCH_FREQ / LcaSignalUtils.NOTCH_BANDWIDTH
         # Design the notch filter
         b, a = sp.signal.iirnotch(LcaSignalUtils.NOTCH_FREQ, Q, LcaSignalUtils.SAMPLING_FREQ)
-        # Adjust the gain to achieve the desired attenuation
-        gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
-        b *= gain
+        # # Adjust the gain to achieve the desired attenuation
+        # gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
+        # b *= gain
 
         filtered_emg = sp.signal.lfilter(b, a, signal)
 
