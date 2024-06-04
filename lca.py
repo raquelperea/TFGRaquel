@@ -184,20 +184,14 @@ class LcaSignalUtils:
     #     return sos
 
     @staticmethod
-    def filter_butter_highpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('highpass')
+    def filter_butter_lowpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
     @staticmethod
-    def filter_butter_highpass_ifilter(signal):
+    def filter_butter_highpass_filtfilt(signal):
         b, a = LcaSignalUtils.build_digital_ba_butter_filter('highpass')
-        filtered = sp.signal.ifilter(b, a, signal)
-        return filtered
-
-    @staticmethod
-    def filter_butter_lowpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
@@ -205,6 +199,12 @@ class LcaSignalUtils:
     def filter_butter_bandpass_filtfilt(signal):
         b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
+        return filtered
+
+    @staticmethod
+    def filter_butter_lowpass_ifilter(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        filtered = sp.signal.ifilter(b, a, signal)
         return filtered
 
     ####################################################################################################################
@@ -217,8 +217,8 @@ class LcaSignalUtils:
         return b, a
 
     @staticmethod
-    def filter_cheby2_highpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_cheby2_filter('highpass')
+    def filter_cheby2_lowpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_cheby2_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
@@ -310,16 +310,16 @@ class LcaSignalUtils:
             return LcaSignalUtils.filter_savgol(signal)
         elif filter_name == 'rolling_rms':
             return LcaSignalUtils.filter_rolling_rms(signal)
-        elif filter_name == 'butter_highpass_filtfilt':
-            return LcaSignalUtils.filter_butter_highpass_filtfilt(signal)
         elif filter_name == 'butter_lowpass_filtfilt':
             return LcaSignalUtils.filter_butter_lowpass_filtfilt(signal)
-        elif filter_name == 'butter_lowpass_ifilter':
-            return LcaSignalUtils.filter_butter_lowpass_ifilter(signal)
+        elif filter_name == 'butter_highpass_filtfilt':
+            return LcaSignalUtils.filter_butter_highpass_filtfilt(signal)
         elif filter_name == 'butter_bandpass_filtfilt':
             return LcaSignalUtils.filter_butter_bandpass_filtfilt(signal)
-        elif filter_name == 'cheby2_highpass_filtfilt':
-            return LcaSignalUtils.filter_cheby2_highpass_filtfilt(signal)
+        elif filter_name == 'butter_lowpass_ifilter':
+            return LcaSignalUtils.filter_butter_lowpass_ifilter(signal)
+        elif filter_name == 'cheby2_lowpass_filtfilt':
+            return LcaSignalUtils.filter_cheby2_lowpass_filtfilt(signal)
         elif filter_name == 'notch_filtfilt':
             return LcaSignalUtils.filter_notch_filtfilt(signal)
         elif filter_name == 'conventional':
@@ -658,11 +658,11 @@ class LcaPlotWindow:
         emg_filter_menu.add_radiobutton(label="Butterworth band-pass + filtfilt filter", variable=self.emg_filter_name,
                                         value='butter_bandpass_filtfilt', command=self.emg_filter_name_onchanged)
 
-        emg_filter_menu.add_radiobutton(label="Butterworth high-pass (causal) filter", variable=self.emg_filter_name,
-                                        value='butter_highpass_ifilter', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) high-pass + filtfilt filter",
+        emg_filter_menu.add_radiobutton(label="Butterworth low-pass (causal) filter", variable=self.emg_filter_name,
+                                        value='butter_lowpass_ifilter', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt filter",
                                         variable=self.emg_filter_name,
-                                        value='cheby2_highpass_filtfilt', command=self.emg_filter_name_onchanged)
+                                        value='cheby2_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
 
         emg_filter_menu.add_radiobutton(label="Notch + filtfilt filter", variable=self.emg_filter_name,
                                         value='notch_filtfilt', command=self.emg_filter_name_onchanged)
