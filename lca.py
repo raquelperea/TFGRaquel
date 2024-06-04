@@ -114,22 +114,22 @@ class LcaSignalUtils:
     @staticmethod
     def build_digital_freqs(btype):
         if btype == 'lowpass':
-            freqs = LcaSignalUtils.LOW_CUTOFF_FREQ
+            freqs = LcaSignalUtils.LOWPASS_CUTOFF_FREQ
         elif btype == 'highpass':
-            freqs = LcaSignalUtils.HIGH_CUTOFF_FREQ
+            freqs = LcaSignalUtils.HIGHPASS_CUTOFF_FREQ
         elif btype == 'bandpass':
-            freqs = (LcaSignalUtils.LOW_CUTOFF_FREQ, LcaSignalUtils.HIGH_CUTOFF_FREQ)
+            freqs = (LcaSignalUtils.HIGHPASS_CUTOFF_FREQ, LcaSignalUtils.LOWPASS_CUTOFF_FREQ)
         return freqs
 
     def build_digital_normalized_freqs(btype):
         if btype == 'lowpass':
-            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOW_CUTOFF_FREQ)
+            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOWPASS_CUTOFF_FREQ)
         elif btype == 'highpass':
-            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGH_CUTOFF_FREQ)
+            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGHPASS_CUTOFF_FREQ)
         elif btype == 'bandpass':
             normalized_freqs = (
-                LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOW_CUTOFF_FREQ),
-                LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGH_CUTOFF_FREQ))
+                LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGHPASS_CUTOFF_FREQ),
+                LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOWPASS_CUTOFF_FREQ))
         return normalized_freqs
 
     ####################################################################################################################
@@ -166,11 +166,11 @@ class LcaSignalUtils:
 
     FILTER_ORDER = 2
 
-    HIGH_CUTOFF_FREQ = 60  # Hz
-    LOW_CUTOFF_FREQ = 30  # Hz
+    HIGHPASS_CUTOFF_FREQ = 30  # Hz
+    LOWPASS_CUTOFF_FREQ = 60  # Hz
 
     @staticmethod
-    def build_digital_ba_butter_filter(btype):
+    def build_digital_butter_ba_filter(btype):
         b, a = sp.signal.butter(LcaSignalUtils.FILTER_ORDER, LcaSignalUtils.build_digital_normalized_freqs(btype),
                                 btype=btype, analog=False, output='ba')
         return b, a
@@ -183,25 +183,25 @@ class LcaSignalUtils:
 
     @staticmethod
     def filter_butter_lowpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        b, a = LcaSignalUtils.build_digital_butter_ba_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
     @staticmethod
     def filter_butter_highpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('highpass')
+        b, a = LcaSignalUtils.build_digital_butter_ba_filter('highpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
     @staticmethod
     def filter_butter_bandpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        b, a = LcaSignalUtils.build_digital_butter_ba_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
     @staticmethod
     def filter_butter_lowpass_lfilter(signal):
-        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        b, a = LcaSignalUtils.build_digital_butter_ba_filter('lowpass')
         filtered = sp.signal.lfilter(b, a, signal)
         return filtered
 
@@ -210,7 +210,7 @@ class LcaSignalUtils:
     STOP_ATTENUATION = 40  # dB
 
     @staticmethod
-    def build_digital_ba_cheby2_filter(btype):
+    def build_digital_cheby2_ba_filter(btype):
         b, a = sp.signal.cheby2(LcaSignalUtils.FILTER_ORDER, LcaSignalUtils.STOP_ATTENUATION,
                                 LcaSignalUtils.build_digital_normalized_freqs(btype),
                                 btype=btype, analog=False, output='ba')
@@ -218,7 +218,7 @@ class LcaSignalUtils:
 
     @staticmethod
     def filter_cheby2_lowpass_filtfilt(signal):
-        b, a = LcaSignalUtils.build_digital_ba_cheby2_filter('lowpass')
+        b, a = LcaSignalUtils.build_digital_cheby2_ba_filter('lowpass')
         filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
@@ -268,17 +268,17 @@ class LcaSignalUtils:
     # NOTCH_ATTENUATION = 20  # Desired attenuation at 50 Hz in dB
 
     @staticmethod
-    def filter_notch_filtfilt(signal):
+    def build_notch_ba_filter():
         # Quality factor (adjust as needed)
         Q = LcaSignalUtils.NOTCH_FREQ / LcaSignalUtils.NOTCH_BANDWIDTH
         # Design the notch filter
         b, a = sp.signal.iirnotch(LcaSignalUtils.NOTCH_FREQ, Q, LcaSignalUtils.SAMPLING_FREQ)
-        # # Adjust the gain to achieve the desired attenuation
-        # gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
-        # b *= gain
+        return b, a
 
+    @staticmethod
+    def filter_notch_filtfilt(signal):
+        b, a = self.build_notch_ba_filter()
         filtered_emg = sp.signal.filtfilt(b, a, signal)
-
         return filtered_emg
 
     @staticmethod
