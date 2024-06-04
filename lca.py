@@ -56,153 +56,188 @@ class LcaFileUtils:
 # static methods for signal handling
 class LcaSignalUtils:
     @staticmethod
-    def find_peaks(xdata, ydata, ydata_src, xlim, height):
+    def find_peaks(xdata, ydata_post, ydata_src, xlim, height):
         # Find indices in range
         if xlim is None:
             xrange = xdata
-            yrange = ydata
+            yrange_post = ydata_post
             yrange_src = ydata_src
         else:
             irange = np.where((xdata >= xlim[0]) & (xdata <= xlim[1]))[0]
             # Find x's and y's in range
             xrange = np.array(xdata)[irange]
-            yrange = np.array(ydata)[irange]
+            yrange_post = np.array(ydata_post)[irange]
             yrange_src = np.array(ydata_src)[irange]
 
         # Find only peaks with a minimum height
-        ipeaks, _ = sp.signal.find_peaks(yrange, height=height)
+        ipeaks, _ = sp.signal.find_peaks(yrange_post, height=height)
 
         xpeaks = [round(xrange[i], 3) for i in ipeaks]
-        ypeaks = [round(yrange_src[i], 3) for i in ipeaks]
-        return xpeaks, ypeaks
+        ypeaks_post = [round(yrange_post[i], 3) for i in ipeaks]
+        ypeaks_src = [round(yrange_src[i], 3) for i in ipeaks]
+        return xpeaks, ypeaks_post, ypeaks_src
 
     @staticmethod
-    def find_hammer_peaks(time_data, hammer_filtered, xlim):
+    def find_hammer_peaks(time_data, hammer, xlim):
         height = 0.1
-        return LcaSignalUtils.find_peaks(time_data, hammer_filtered, hammer_filtered, xlim, height)
+        peak_times_hammer, peak_values_hammer, _ = LcaSignalUtils.find_peaks(time_data, hammer, hammer, xlim, height)
+        return peak_times_hammer, peak_values_hammer
 
     @staticmethod
-    def find_emg_peaks(time_data, emg_filtered, latency_postprocess_name, xlim):
-        emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg_filtered, latency_postprocess_name)
+    def find_emg_peaks(time, emg, latency_postprocess_name, xlim):
+        emg_postprocessed = LcaSignalUtils.postprocess_emg_filtered(emg, latency_postprocess_name)
         if latency_postprocess_name == 'gradient':
             height = 0.005
         else:
             height = 0.06
-        return LcaSignalUtils.find_peaks(time_data, emg_postprocessed, emg_filtered, xlim, height)
+        peak_times_emg, peak_values_emg_post, peak_values_emg_src = LcaSignalUtils.find_peaks(time, emg_postprocessed,
+                                                                                              emg,
+                                                                                              xlim, height)
+        return peak_times_emg, peak_values_emg_post, peak_values_emg_src
+
+    ####################################################################################################################
+
+    # DEFAULT_HAMMER_FILTER_NAME = '-'
+    # DEFAULT_EMG_FILTER_NAME = 'rolling_rms'
+    DEFAULT_EMG_FILTER_NAME = '-'
+    DEFAULT_LATENCY_POSTPROCESS_NAME = 'max'
+
+    ####################################################################################################################
+
+    SAMPLING_FREQ = 1000  # Hz
+    NYQUIST_FREQ = SAMPLING_FREQ / 2
 
     @staticmethod
-    def filter_hammer(hammer):
-        # threshold_hammer = 0.02  # Umbral para establecer valores casi cero a cero
-        # hammer_filtered = [0 if abs(x) < threshold_hammer else x for x in hammer]
-        offset = np.mean(hammer)  # Calculate the mean value of the signal
-        offset_removed_signal = hammer - offset
-
-        return offset_removed_signal
+    def normalize_frequency(freq):
+        return freq / LcaSignalUtils.NYQUIST_FREQ
 
     @staticmethod
-    def rolling_rms_filter(emg, half_window_size):
+    def build_digital_freqs(btype):
+        if btype == 'lowpass':
+            freqs = LcaSignalUtils.LOW_CUTOFF_FREQ
+        elif btype == 'highpass':
+            freqs = LcaSignalUtils.HIGH_CUTOFF_FREQ
+        elif btype == 'bandpass':
+            freqs = (LcaSignalUtils.LOW_CUTOFF_FREQ, LcaSignalUtils.HIGH_CUTOFF_FREQ)
+        return freqs
+
+    def build_digital_normalized_freqs(btype):
+        if btype == 'lowpass':
+            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOW_CUTOFF_FREQ)
+        elif btype == 'highpass':
+            normalized_freqs = LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGH_CUTOFF_FREQ)
+        elif btype == 'bandpass':
+            normalized_freqs = (
+                LcaSignalUtils.normalize_frequency(LcaSignalUtils.LOW_CUTOFF_FREQ),
+                LcaSignalUtils.normalize_frequency(LcaSignalUtils.HIGH_CUTOFF_FREQ))
+        return normalized_freqs
+
+    ####################################################################################################################
+
+    # @staticmethod
+    # def filter_hammer(hammer, hammer_filter_name):
+    #     if hammer_filter_name == '-':
+    #         return hammer
+    #     elif hammer_filter_name == 'default':
+    #         return LcaSignalUtils.filter_hammer(hammer, LcaSignalUtils.DEFAULT_HAMMER_FILTER_NAME)
+    #     else:
+    #         return None
+
+    ####################################################################################################################
+
+    @staticmethod
+    def rolling_rms_filter(signal, half_window_size):
         window_size = 2 * half_window_size + 1
         window = np.ones(window_size) / float(window_size)
 
         return np.sqrt(
             sp.signal.fftconvolve(
-                np.power(emg, 2),
+                np.power(signal, 2),
                 window,
                 'same'))
 
     @staticmethod
-    def filter_emg_rolling_rms(emg):
-        return LcaSignalUtils.rolling_rms_filter(emg, 2)
-        # return LcaSignalUtils.rolling_rms_filter(emg, 3)
-        # return LcaSignalUtils.rolling_rms_filter(rolling_rms_filter(emg, 3), 1)
+    def filter_rolling_rms(signal):
+        return LcaSignalUtils.rolling_rms_filter(signal, 2)
+        # return LcaSignalUtils.rolling_rms_filter(signal, 3)
+        # return LcaSignalUtils.rolling_rms_filter(rolling_rms_filter(signal, 3), 1)
+
+    ####################################################################################################################
+
+    FILTER_ORDER = 4
+
+    HIGH_CUTOFF_FREQ = 60  # Hz
+    LOW_CUTOFF_FREQ = 30  # Hz
+
+    STOP_ATTENUATION = 40  # dB
 
     @staticmethod
-    def filter_emg_gradient(emg):
-        return np.gradient(emg)
-        # return emg * np.gradient(emg) * 10
+    def build_digital_ba_butter_filter(btype):
+        b, a = sp.signal.butter(LcaSignalUtils.FILTER_ORDER, LcaSignalUtils.build_digital_normalized_freqs(btype),
+                                btype=btype, analog=False, output='ba')
+        return b, a
+
+    # @staticmethod
+    # def build_digital_sos_butter_filter(btype):
+    #     sos = sp.signal.butter(LcaSignalUtils.FILTER_ORDER, LcaSignalUtils.build_digital_normalized_freqs(btype),
+    #                            btype=btype, analog=False, output='sos')
+    #     return sos
 
     @staticmethod
-    def filter_emg_high_pass(emg):
-        sampling_freq = 1000
-        # cutoff_freq = 20
-        cutoff_freq = 20
-        order = 2
-
-        nyquist_freq = 0.5 * sampling_freq
-        normalized_cutoff_freq = cutoff_freq / nyquist_freq
-        b, a = sp.signal.butter(order, normalized_cutoff_freq,
-                                btype='highpass', analog=False, output='ba')
-        filtered_signal = sp.signal.filtfilt(b, a, emg)
-        return filtered_signal
-
-    @staticmethod
-    def filter_emg_low_pass(emg):
-        cutoff_freq = 35  # Hz
-        sampling_freq = 1000  # Hz
-        filter_order = 2
-
-        nyquist_freq = 0.5 * sampling_freq
-        normalized_cutoff_freq = cutoff_freq / nyquist_freq
-
-        offset = np.mean(emg)  # Calculate the mean value of the signal
-        offset_removed_signal = emg - offset
-
-        # Butterworth low-pass filter
-        b, a = sp.signal.butter(filter_order, normalized_cutoff_freq,
-                                btype='lowpass', analog=False, output='ba')
-        filtered_signal = sp.signal.filtfilt(b, a, offset_removed_signal)
-
-        return filtered_signal
-
-    @staticmethod
-    def filter_emg_band_pass(emg):
-        low_cutoff_freq = 20  # Hz
-        high_cutoff_freq = 35  # Hz
-        sampling_freq = 1000  # Hz
-        filter_order = 4
-
-        nyquist_freq = 0.5 * sampling_freq
-        normalized_low_cutoff_freq = low_cutoff_freq / nyquist_freq
-        normalized_high_cutoff_freq = high_cutoff_freq / nyquist_freq
-
-        # Design Butterworth band-pass filter
-        b, a = sp.signal.butter(filter_order, [normalized_low_cutoff_freq, normalized_high_cutoff_freq],
-                                btype='bandpass', analog=False, output='ba')
-        filtered_signal = sp.signal.filtfilt(b, a, emg)
-
-        return filtered_signal
-
-    @staticmethod
-    def filter_emg_savgol(emg):
-        # return sp.signal.savgol_filter(emg, window_length=45, polyorder=4)
-        return sp.signal.savgol_filter(emg, window_length=11, polyorder=3)
-
-    @staticmethod
-    def filter_emg_chebyshev_type2(emg):
-        cutoff_freq = 10  # Hz
-        sampling_freq = 1000  # Hz
-        stop_attenuation_db = 40  # dB
-        filter_order = 4
-
-        nyquist_freq = 0.5 * sampling_freq
-        normalized_cutoff_freq = cutoff_freq / nyquist_freq
-
-        # Design Chebyshev Type II high-pass filter
-        b, a = sp.signal.cheby2(filter_order, stop_attenuation_db, normalized_cutoff_freq,
-                                btype='highpass', analog=False, output='ba')
-        filtered = sp.signal.filtfilt(b, a, emg)
+    def filter_butter_highpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('highpass')
+        filtered = sp.signal.filtfilt(b, a, signal)
         return filtered
 
     @staticmethod
-    def filter_emg_conventional(emg):
-        low_pass = 6
+    def filter_butter_lowpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        filtered = sp.signal.filtfilt(b, a, signal)
+        return filtered
+
+    @staticmethod
+    def filter_butter_lowpass_ifilter(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        filtered = sp.signal.ifilter(b, a, signal)
+        return filtered
+
+    @staticmethod
+    def filter_butter_bandpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
+        filtered = sp.signal.filtfilt(b, a, signal)
+        return filtered
+
+    ####################################################################################################################
+
+    @staticmethod
+    def build_digital_ba_cheby2_filter(btype):
+        b, a = sp.signal.cheby2(LcaSignalUtils.FILTER_ORDER, LcaSignalUtils.STOP_ATTENUATION,
+                                LcaSignalUtils.build_digital_normalized_freqs(btype),
+                                btype=btype, analog=False, output='ba')
+        return b, a
+
+    @staticmethod
+    def filter_cheby2_highpass_filtfilt(signal):
+        b, a = LcaSignalUtils.build_digital_ba_cheby2_filter('highpass')
+        filtered = sp.signal.filtfilt(b, a, signal)
+        return filtered
+
+    ####################################################################################################################
+
+    @staticmethod
+    def filter_savgol(signal):
+        # return sp.signal.savgol_filter(signal, window_length=45, polyorder=4)
+        return sp.signal.savgol_filter(signal, window_length=11, polyorder=3)
+
+    ####################################################################################################################
+
+    @staticmethod
+    def filter_conventional(signal):
+        lowpass = 6
         sfreq = 2000
         high_band = 10
         low_band = 35
         amplification_factor = 2
-
-        offset = np.mean(emg)  # Calculate the mean value of the signal
-        offset_removed_signal = emg - offset
 
         # normalise cut-off frequencies to sampling frequency
         high_band = high_band / (sfreq / 2)
@@ -212,44 +247,47 @@ class LcaSignalUtils:
         b1, a1 = sp.signal.butter(4, [high_band, low_band], btype='bandpass')
 
         # process EMG signal: filter EMG
-        emg_filtered = sp.signal.filtfilt(b1, a1, offset_removed_signal)
+        emg_filtered = sp.signal.filtfilt(b1, a1, signal)
 
         # process EMG signal: rectify
         emg_rectified = abs(emg_filtered)
 
         # create lowpass filter and apply to rectified signal to get EMG envelope
-        low_pass = low_pass / (sfreq / 2)
-        b2, a2 = sp.signal.butter(4, low_pass, btype='lowpass')
+        lowpass = lowpass / (sfreq / 2)
+        b2, a2 = sp.signal.butter(4, lowpass, btype='lowpass')
         emg_envelope = sp.signal.filtfilt(b2, a2, emg_rectified)
 
         emg_amplified = emg_envelope * amplification_factor
 
         return emg_amplified
 
+    ####################################################################################################################
+
+    NOTCH_FREQ = 50.0  # Frequency to be removed (notch frequency)
+    NOTCH_BANDWIDTH = 2.0  # Bandwidth of the notch in Hz
+    NOTCH_ATTENUATION = 20  # Desired attenuation at 50 Hz in dB
+
     @staticmethod
-    def filter_emg_notch(emg):
-        fs = 1000.0  # Sampling frequency
-        f0 = 50.0  # Frequency to be removed (notch frequency)
-        bw = 2.0  # Bandwidth of the notch in Hz
-        attenuation_dB = 20.0  # Desired attenuation at 50 Hz in dB
-        Q = f0 / bw
+    def filter_notch_filtfilt(signal):
+        Q = LcaSignalUtils.NOTCH_FREQ / LcaSignalUtils.NOTCH_BANDWIDTH
         # Design the notch filter
-        b, a = sp.signal.iirnotch(f0, Q, fs)
+        b, a = sp.signal.iirnotch(LcaSignalUtils.NOTCH_FREQ, Q, LcaSignalUtils.SAMPLING_FREQ)
         # Adjust the gain to achieve the desired attenuation
-        gain = 10 ** (-attenuation_dB / 20)
+        gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
         b *= gain
 
-        filtered_emg = sp.signal.lfilter(b, a, emg)
+        # filtered_emg = sp.signal.lfilter(b, a, signal)
+        filtered_emg = sp.signal.filtfilt(b, a, signal)
 
         return filtered_emg
 
     @staticmethod
-    def filter_emg_pyemgpipeline(emg):
+    def filter_pyemgpipeline(signal):
         # Ensure the input is a NumPy array
-        if not isinstance(emg, np.ndarray):
-            emg = np.array(emg)
+        if not isinstance(signal, np.ndarray):
+            signal = np.array(signal)
 
-        emg_trial = pyemgpipeline.wrappers.EMGMeasurement(emg, hz=1000)
+        emg_trial = pyemgpipeline.wrappers.EMGMeasurement(signal, hz=1000)
 
         # emg_trial.remove_dc_offset()
 
@@ -262,47 +300,34 @@ class LcaSignalUtils:
 
         return emg_trial
 
-    # DEFAULT_EMG_FILTER_NAME = 'rolling_rms'
-    DEFAULT_EMG_FILTER_NAME = '-'
-    DEFAULT_LATENCY_POSTPROCESS_NAME = 'max'
-
     @staticmethod
-    def filter_emg(emg, emg_filter_name):
-        if emg_filter_name == '-':
-            return emg
-
-        elif emg_filter_name == 'default':
-            return LcaSignalUtils.filter_emg(emg, LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
-
-        elif emg_filter_name == 'savgol':
-            return LcaSignalUtils.filter_emg_savgol(emg)
-
-        elif emg_filter_name == 'rolling_rms':
-            return LcaSignalUtils.filter_emg_rolling_rms(emg)
-
-        elif emg_filter_name == 'high_pass':
-            return LcaSignalUtils.filter_emg_high_pass(emg)
-
-        elif emg_filter_name == 'low_pass':
-            return LcaSignalUtils.filter_emg_low_pass(emg)
-
-        elif emg_filter_name == 'band_pass':
-            return LcaSignalUtils.filter_emg_band_pass(emg)
-
-        elif emg_filter_name == 'chebyshev_type2':
-            return LcaSignalUtils.filter_emg_chebyshev_type2(emg)
-
-        elif emg_filter_name == 'notch':
-            return LcaSignalUtils.filter_emg_notch(emg)
-
-        elif emg_filter_name == 'conventional':
-            return LcaSignalUtils.filter_emg_conventional(emg)
-
-        elif emg_filter_name == 'pyemgpipeline':
-            return LcaSignalUtils.filter_emg_pyemgpipeline(emg)
-
-        elif emg_filter_name == 'gradient':
-            return LcaSignalUtils.filter_emg_gradient(emg)
+    def filter(signal, filter_name):
+        if filter_name == '-':
+            return signal
+        elif filter_name == 'default':
+            return LcaSignalUtils.filter(signal, LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
+        elif filter_name == 'savgol':
+            return LcaSignalUtils.filter_savgol(signal)
+        elif filter_name == 'rolling_rms':
+            return LcaSignalUtils.filter_rolling_rms(signal)
+        elif filter_name == 'butter_highpass_filtfilt':
+            return LcaSignalUtils.filter_butter_highpass_filtfilt(signal)
+        elif filter_name == 'butter_lowpass_filtfilt':
+            return LcaSignalUtils.filter_butter_lowpass_filtfilt(signal)
+        elif filter_name == 'butter_lowpass_ifilter':
+            return LcaSignalUtils.filter_butter_lowpass_ifilter(signal)
+        elif filter_name == 'butter_bandpass_filtfilt':
+            return LcaSignalUtils.filter_butter_bandpass_filtfilt(signal)
+        elif filter_name == 'cheby2_highpass_filtfilt':
+            return LcaSignalUtils.filter_cheby2_highpass_filtfilt(signal)
+        elif filter_name == 'notch_filtfilt':
+            return LcaSignalUtils.filter_notch_filtfilt(signal)
+        elif filter_name == 'conventional':
+            return LcaSignalUtils.filter_conventional(signal)
+        elif filter_name == 'pyemgpipeline':
+            return LcaSignalUtils.filter_pyemgpipeline(signal)
+        else:
+            return None
 
     @staticmethod
     def postprocess_emg_filtered(emg_filtered, postprocess_emg_name):
@@ -324,7 +349,7 @@ class LcaData:
         self.time_data = None
 
         self.hammer_raw = None
-        self.hammer_filtered = None
+        # self.hammer_filtered = None
         self.peak_times_hammer = None
         self.peak_values_hammer = None
 
@@ -338,27 +363,29 @@ class LcaData:
 
         self.emg_preprocessed = self.emg_raw
 
-        self.set_hammer_filter()
+        # self.set_hammer_filter(LcaSignalUtils.DEFAULT_HAMMER_FILTER_NAME)
+        self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
+            self.time_data, self.hammer_raw, None)
 
         self.emg_filter_name = LcaSignalUtils.DEFAULT_EMG_FILTER_NAME
         self.latency_postprocess_name = LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME
         self.set_emg_filter(self.emg_filter_name)
 
-    def set_hammer_filter(self):
-        self.hammer_filtered = LcaSignalUtils.filter_hammer(self.hammer_raw)
-        self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
-            self.time_data, self.hammer_filtered, None)
+    # def set_hammer_filter(self, hammer_filter_name):
+    #     self.hammer_filtered = LcaSignalUtils.filter_hammer(self.hammer_raw, hammer_filter_name)
+    #     self.peak_times_hammer, self.peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
+    #         self.time_data, self.hammer_filtered, None)
 
     def set_emg_filter(self, emg_filter_name):
         self.emg_filter_name = emg_filter_name
-        self.emg_filtered = LcaSignalUtils.filter_emg(self.emg_preprocessed, emg_filter_name)
+        self.emg_filtered = LcaSignalUtils.filter(self.emg_preprocessed, emg_filter_name)
 
         self.set_latency_postprocess(self.latency_postprocess_name)
 
     def set_latency_postprocess(self, latency_postprocess_name):
         self.latency_postprocess_name = latency_postprocess_name
-        self.peak_times_emg, self.peak_values_emg = LcaSignalUtils.find_emg_peaks(
-            self.time_data, self.emg_filtered, self.latency_postprocess_name, None)
+        self.peak_times_emg, _, self.peak_values_emg \
+            = LcaSignalUtils.find_emg_peaks(self.time_data, self.emg_filtered, self.latency_postprocess_name, None)
 
     def reset_emg_preprocessed(self):
         self.emg_preprocessed = self.emg_raw
@@ -370,23 +397,23 @@ class LcaData:
 
     def calc_stats_text(self, xlim):
         peak_times_hammer, peak_values_hammer = LcaSignalUtils.find_hammer_peaks(
-            self.time_data, self.hammer_filtered, xlim)
-        peak_times_emg, peak_values_emg = LcaSignalUtils.find_emg_peaks(
+            self.time_data, self.hammer_raw, xlim)
+        peak_times_emg, peak_values_emg_post, peak_values_emg_src = LcaSignalUtils.find_emg_peaks(
             self.time_data, self.emg_filtered, self.latency_postprocess_name, xlim)
 
         def calc_latency_row(peak_time_hammer, peak_value_hammer):
             latency_row = (peak_time_hammer, peak_value_hammer, None, None, None)
-            max_peak_values_emg = 0
+            max_peak_values_emg_post = -10000
             for i, peak_time_emg in enumerate(peak_times_emg):
                 # only in range 0 to 500 ms
                 if peak_time_hammer < peak_time_emg and peak_time_emg <= peak_time_hammer + 0.5:
-                    if peak_values_emg[i] > max_peak_values_emg:
+                    if peak_values_emg_post[i] > max_peak_values_emg_post:
                         latency_row = (peak_time_hammer,
                                        peak_value_hammer,
                                        peak_time_emg,
-                                       peak_values_emg[i],
+                                       peak_values_emg_src[i],
                                        round((peak_time_emg - peak_time_hammer) * 1000, 0))
-                        max_peak_values_emg = peak_values_emg[i]
+                        max_peak_values_emg_post = peak_values_emg_post[i]
             return latency_row
 
         latency_table = [calc_latency_row(peak_time_hammer, peak_values_hammer[i])
@@ -429,20 +456,23 @@ class LcaPlot:
         self.emg_axes.set_ylabel("EMG signal (mV)", color='blue')
         self.emg_axes.tick_params(axis='y', labelcolor='blue')
 
-        # self.hammer_raw_plot = None
-        self.hammer_filtered_plot, = self.hammer_axes.plot(self.lca_data.time_data, self.lca_data.hammer_filtered,
-                                                           label="Hammer", color='red', linewidth=1, alpha=0.7)
+        self.hammer_raw_plot, = self.hammer_axes.plot(self.lca_data.time_data, self.lca_data.hammer_raw,
+                                                      label="Hammer", color='red', linewidth=1, alpha=0.7)
+        # self.hammer_filtered_plot, = self.hammer_axes.plot(self.lca_data.time_data, self.lca_data.hammer_filtered,
+        #                                                    label="Hammer", color='red', linewidth=1, alpha=0.7)
         self.hammer_peaks_plot, = self.hammer_axes.plot(self.lca_data.peak_times_hammer,
                                                         self.lca_data.peak_values_hammer,
                                                         'ro', markerfacecolor='none', markeredgecolor='red',
                                                         label="Hammer peaks", alpha=0.7)
 
         self.emg_raw_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_raw,
-                                                label="EMG raw", color='blue', linewidth=1, alpha=0.2)
+                                                label="EMG raw", color='blue', linewidth=1,
+                                                linestyle='dotted', alpha=0.3)
         self.emg_preprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_preprocessed,
-                                                         label="EMG preprocessed", color='blue', linewidth=1, alpha=0.4)
+                                                         label="EMG applied filters", color='blue', linewidth=1,
+                                                         linestyle='dashed', alpha=0.3)
         self.emg_filtered_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_filtered,
-                                                     label="EMG filtered", color='blue', linewidth=1, alpha=0.7)
+                                                     label="EMG filtered", color='blue', linewidth=1.2, alpha=0.8)
         self.emg_peak_plot, = self.emg_axes.plot(self.lca_data.peak_times_emg, self.lca_data.peak_values_emg,
                                                  'bo', markerfacecolor='none', markeredgecolor='blue',
                                                  label="EMG peaks", alpha=0.7)
@@ -458,6 +488,8 @@ class LcaPlot:
         # self.time_range.set_val((self.initial_xlim[0], self.initial_xlim[1]))
 
         self.reset_zoom()
+
+        # self.freq_axes= self.figure.add_axes([0.20, 0.1, 0.60, 0.03])
 
     def reset_zoom(self):
         # self.base_axes.set_xlim(self.initial_xlim)
@@ -508,17 +540,18 @@ class LcaPlotWindow:
         self.root_window = tk.Tk()
         self.canvas = None
 
-        # self.show_hammer_raw_plot = tk.IntVar(value=0)
-        self.show_hammer_filtered_plot = tk.IntVar(master = self.root_window, value=1)
-        self.show_hammer_peaks_plot = tk.IntVar(master = self.root_window, value=1)
-        self.show_emg_raw_plot = tk.IntVar(master = self.root_window, value=1)
-        self.show_emg_preprocessed_plot = tk.IntVar(master = self.root_window, value=1)
-        self.show_emg_filtered_plot = tk.IntVar(master = self.root_window, value=1)
-        self.show_emg_peaks_plot = tk.IntVar(master = self.root_window, value=1)
+        self.show_hammer_raw_plot = tk.IntVar(master=self.root_window, value=1)
+        # self.show_hammer_filtered_plot = tk.IntVar(master=self.root_window, value=0)
+        self.show_hammer_peaks_plot = tk.IntVar(master=self.root_window, value=1)
+        self.show_emg_raw_plot = tk.IntVar(master=self.root_window, value=1)
+        self.show_emg_preprocessed_plot = tk.IntVar(master=self.root_window, value=1)
+        self.show_emg_filtered_plot = tk.IntVar(master=self.root_window, value=1)
+        self.show_emg_peaks_plot = tk.IntVar(master=self.root_window, value=1)
 
-        self.emg_filter_name = tk.StringVar(master = self.root_window, value=LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
+        self.emg_filter_name = tk.StringVar(master=self.root_window, value=LcaSignalUtils.DEFAULT_EMG_FILTER_NAME)
 
-        self.latency_postprocess_name = tk.StringVar(master = self.root_window, value=LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME)
+        self.latency_postprocess_name = tk.StringVar(master=self.root_window,
+                                                     value=LcaSignalUtils.DEFAULT_LATENCY_POSTPROCESS_NAME)
 
         self.create_root_window(self.root_window)
 
@@ -562,11 +595,11 @@ class LcaPlotWindow:
         view_menu = self.create_view_menu(menubar)
         menubar.add_cascade(label="View", menu=view_menu)
 
-        emg_filter_menu = self.create_emg_filter_menu(menubar)
-        menubar.add_cascade(label="Filter", menu=emg_filter_menu)
-
         emg_preprocess_menu = self.create_emg_preprocess_menu(menubar)
-        menubar.add_cascade(label="Preprocess", menu=emg_preprocess_menu)
+        menubar.add_cascade(label="User-applied filters", menu=emg_preprocess_menu)
+
+        emg_filter_menu = self.create_emg_filter_menu(menubar)
+        menubar.add_cascade(label="Current filter", menu=emg_filter_menu)
 
         latency_menu = self.create_latency_menu(menubar)
         menubar.add_cascade(label="Latency", menu=latency_menu)
@@ -589,7 +622,7 @@ class LcaPlotWindow:
         #                                command=self.show_any_plot_onchanged)
         # self.view_menu.add_checkbutton(label="Hammer (filtered)", variable=self.show_hammer_filtered_plot,
         #                                command=self.show_any_plot_onchanged)
-        view_menu.add_checkbutton(label="Hammer", variable=self.show_hammer_filtered_plot,
+        view_menu.add_checkbutton(label="Hammer", variable=self.show_hammer_raw_plot,
                                   command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="Hammer peaks", variable=self.show_hammer_peaks_plot,
                                   command=self.show_any_plot_onchanged)
@@ -613,36 +646,48 @@ class LcaPlotWindow:
 
         emg_filter_menu.add_radiobutton(label="No filter", variable=self.emg_filter_name,
                                         value='-', command=self.emg_filter_name_onchanged)
-        # filter_menu.add_radiobutton(label="Default filter (rolling RMS)", variable=self.emg_filter_name,
+        # emg_filter_menuemg_filter_menu.add_radiobutton(label="Default filter (rolling RMS)", variable=self.emg_filter_name,
         #                             value='default', command=self.emg_filter_name_onchanged)
 
-        # filter_menu.add_separator()
+        emg_filter_menu.add_separator()
+
+        emg_filter_menu.add_radiobutton(label="Butterworth low-pass + filtfilt filter", variable=self.emg_filter_name,
+                                        value='butter_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Butterworth high-pass + filtfilt filter", variable=self.emg_filter_name,
+                                        value='butter_highpass_filtfilt', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Butterworth band-pass + filtfilt filter", variable=self.emg_filter_name,
+                                        value='butter_bandpass_filtfilt', command=self.emg_filter_name_onchanged)
+
+        emg_filter_menu.add_separator()
+
+        emg_filter_menu.add_radiobutton(label="Notch + filtfilt filter", variable=self.emg_filter_name,
+                                        value='notch_filtfilt', command=self.emg_filter_name_onchanged)
+
+        emg_filter_menu.add_separator()
 
         emg_filter_menu.add_radiobutton(label="Rolling RMS filter", variable=self.emg_filter_name,
                                         value='rolling_rms', command=self.emg_filter_name_onchanged)
         emg_filter_menu.add_radiobutton(label="Savitzky–Golay filter", variable=self.emg_filter_name,
                                         value='savgol', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="High-pass filter", variable=self.emg_filter_name,
-                                        value='high_pass', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Low-pass filter", variable=self.emg_filter_name,
-                                        value='low_pass', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Band-pass filter", variable=self.emg_filter_name,
-                                        value='band_pass', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) filter", variable=self.emg_filter_name,
-                                        value='chebyshev_type2', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Notch filter", variable=self.emg_filter_name,
-                                        value='notch', command=self.emg_filter_name_onchanged)
 
-        # filter_menu.add_separator()
+        emg_filter_menu.add_separator()
+
+        emg_filter_menu.add_radiobutton(label="Butterworth low-pass (causal) filter", variable=self.emg_filter_name,
+                                        value='butter_lowpass_ifilter', command=self.emg_filter_name_onchanged)
+        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) high-pass + filtfilt filter",
+                                        variable=self.emg_filter_name,
+                                        value='cheby2_highpass_filtfilt', command=self.emg_filter_name_onchanged)
+
+        emg_filter_menu.add_separator()
 
         emg_filter_menu.add_radiobutton(label="Conventional EMG processing", variable=self.emg_filter_name,
                                         value='conventional', command=self.emg_filter_name_onchanged)
-        # filter_menu.add_radiobutton(label="pyemgpipeline EMG processing", variable=self.emg_filter_name,
+        # emg_filter_menu.add_radiobutton(label="pyemgpipeline EMG processing", variable=self.emg_filter_name,
         #                             value='pyemgpipeline', command=self.emg_filter_name_onchanged)
 
-        # filter_menu.add_separator()
+        # emg_filter_menu.add_separator()
         #
-        # filter_menu.add_radiobutton(label="Gradient", variable=self.emg_filter_name,
+        # emg_filter_menu.add_radiobutton(label="Gradient", variable=self.emg_filter_name,
         #                             value='gradient', command=self.emg_filter_name_onchanged)
 
         return emg_filter_menu
@@ -650,7 +695,8 @@ class LcaPlotWindow:
     def create_emg_preprocess_menu(self, menubar):
         emg_preprocess_menu = tk.Menu(menubar, tearoff=False)
 
-        emg_preprocess_menu.add_command(label="Apply selected filter", command=self.emg_preprocess_apply_current_filter_onclick)
+        emg_preprocess_menu.add_command(label="Apply current filter",
+                                        command=self.emg_preprocess_apply_current_filter_onclick)
 
         emg_preprocess_menu.add_command(label="Reset to raw signal", command=self.emg_preprocess_reset_onclick)
 
@@ -772,8 +818,8 @@ class LcaPlotWindow:
         self.canvas.draw_idle()
 
     def refresh_plot(self):
-        # self.lca_plot.hammer_raw_plot.set_visible(show_hammer_raw_plot.get())
-        self.lca_plot.hammer_filtered_plot.set_visible(self.show_hammer_filtered_plot.get())
+        self.lca_plot.hammer_raw_plot.set_visible(self.show_hammer_raw_plot.get())
+        # self.lca_plot.hammer_filtered_plot.set_visible(self.show_hammer_filtered_plot.get())
         self.lca_plot.hammer_peaks_plot.set_visible(self.show_hammer_peaks_plot.get())
         self.lca_plot.hammer_axes.legend()
 
