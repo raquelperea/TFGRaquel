@@ -202,9 +202,9 @@ class LcaSignalUtils:
         return filtered
 
     @staticmethod
-    def filter_butter_lowpass_ifilter(signal):
+    def filter_butter_lowpass_lfilter(signal):
         b, a = LcaSignalUtils.build_digital_ba_butter_filter('lowpass')
-        filtered = sp.signal.ifilter(b, a, signal)
+        filtered = sp.signal.lfilter(b, a, signal)
         return filtered
 
     ####################################################################################################################
@@ -316,8 +316,8 @@ class LcaSignalUtils:
             return LcaSignalUtils.filter_butter_highpass_filtfilt(signal)
         elif filter_name == 'butter_bandpass_filtfilt':
             return LcaSignalUtils.filter_butter_bandpass_filtfilt(signal)
-        elif filter_name == 'butter_lowpass_ifilter':
-            return LcaSignalUtils.filter_butter_lowpass_ifilter(signal)
+        elif filter_name == 'butter_lowpass_lfilter':
+            return LcaSignalUtils.filter_butter_lowpass_lfilter(signal)
         elif filter_name == 'cheby2_lowpass_filtfilt':
             return LcaSignalUtils.filter_cheby2_lowpass_filtfilt(signal)
         elif filter_name == 'notch_filtfilt':
@@ -659,7 +659,7 @@ class LcaPlotWindow:
                                         value='butter_bandpass_filtfilt', command=self.emg_filter_name_onchanged)
 
         emg_filter_menu.add_radiobutton(label="Butterworth low-pass (causal) filter", variable=self.emg_filter_name,
-                                        value='butter_lowpass_ifilter', command=self.emg_filter_name_onchanged)
+                                        value='butter_lowpass_lfilter', command=self.emg_filter_name_onchanged)
         emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt filter",
                                         variable=self.emg_filter_name,
                                         value='cheby2_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
