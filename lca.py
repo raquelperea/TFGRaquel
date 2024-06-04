@@ -164,12 +164,10 @@ class LcaSignalUtils:
 
     ####################################################################################################################
 
-    FILTER_ORDER = 4
+    FILTER_ORDER = 6
 
     HIGH_CUTOFF_FREQ = 60  # Hz
     LOW_CUTOFF_FREQ = 30  # Hz
-
-    STOP_ATTENUATION = 40  # dB
 
     @staticmethod
     def build_digital_ba_butter_filter(btype):
@@ -208,6 +206,8 @@ class LcaSignalUtils:
         return filtered
 
     ####################################################################################################################
+
+    STOP_ATTENUATION = 40  # dB
 
     @staticmethod
     def build_digital_ba_cheby2_filter(btype):
@@ -276,8 +276,20 @@ class LcaSignalUtils:
         gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
         b *= gain
 
-        # filtered_emg = sp.signal.lfilter(b, a, signal)
         filtered_emg = sp.signal.filtfilt(b, a, signal)
+
+        return filtered_emg
+
+    @staticmethod
+    def filter_notch_lfilter(signal):
+        Q = LcaSignalUtils.NOTCH_FREQ / LcaSignalUtils.NOTCH_BANDWIDTH
+        # Design the notch filter
+        b, a = sp.signal.iirnotch(LcaSignalUtils.NOTCH_FREQ, Q, LcaSignalUtils.SAMPLING_FREQ)
+        # Adjust the gain to achieve the desired attenuation
+        gain = 10 ** (-LcaSignalUtils.NOTCH_ATTENUATION / 20)
+        b *= gain
+
+        filtered_emg = sp.signal.lfilter(b, a, signal)
 
         return filtered_emg
 
@@ -322,6 +334,8 @@ class LcaSignalUtils:
             return LcaSignalUtils.filter_cheby2_lowpass_filtfilt(signal)
         elif filter_name == 'notch_filtfilt':
             return LcaSignalUtils.filter_notch_filtfilt(signal)
+        elif filter_name == 'notch_lfilter':
+            return LcaSignalUtils.filter_notch_lfilter(signal)
         elif filter_name == 'conventional':
             return LcaSignalUtils.filter_conventional(signal)
         elif filter_name == 'pyemgpipeline':
@@ -646,39 +660,35 @@ class LcaPlotWindow:
 
         emg_filter_menu.add_radiobutton(label="No filter", variable=self.emg_filter_name,
                                         value='-', command=self.emg_filter_name_onchanged)
-        # emg_filter_menuemg_filter_menu.add_radiobutton(label="Default filter (rolling RMS)", variable=self.emg_filter_name,
+        # emg_filter_menuemg_filter_menu.add_radiobutton(label="Default (rolling RMS)", variable=self.emg_filter_name,
         #                             value='default', command=self.emg_filter_name_onchanged)
 
         emg_filter_menu.add_separator()
 
-        emg_filter_menu.add_radiobutton(label="Butterworth low-pass + filtfilt filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Butterworth low-pass + filtfilt", variable=self.emg_filter_name,
                                         value='butter_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Butterworth high-pass + filtfilt filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Butterworth high-pass + filtfilt", variable=self.emg_filter_name,
                                         value='butter_highpass_filtfilt', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Butterworth band-pass + filtfilt filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Butterworth band-pass + filtfilt", variable=self.emg_filter_name,
                                         value='butter_bandpass_filtfilt', command=self.emg_filter_name_onchanged)
-
-        emg_filter_menu.add_radiobutton(label="Butterworth low-pass (causal) filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Butterworth low-pass + lfilter (causal)", variable=self.emg_filter_name,
                                         value='butter_lowpass_lfilter', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt filter",
+        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt",
                                         variable=self.emg_filter_name,
                                         value='cheby2_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
-
-        emg_filter_menu.add_radiobutton(label="Notch + filtfilt filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Notch + filtfilt", variable=self.emg_filter_name,
                                         value='notch_filtfilt', command=self.emg_filter_name_onchanged)
-
-        # emg_filter_menu.add_radiobutton(label="Rolling RMS filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Notch + lfilter", variable=self.emg_filter_name,
+                                        value='notch_lfilter', command=self.emg_filter_name_onchanged)
+        # emg_filter_menu.add_radiobutton(label="Rolling RMS", variable=self.emg_filter_name,
         #                                 value='rolling_rms', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Savitzky–Golay filter", variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Savitzky–Golay", variable=self.emg_filter_name,
                                         value='savgol', command=self.emg_filter_name_onchanged)
-
         # emg_filter_menu.add_radiobutton(label="Conventional EMG processing", variable=self.emg_filter_name,
         #                                 value='conventional', command=self.emg_filter_name_onchanged)
         # emg_filter_menu.add_radiobutton(label="pyemgpipeline EMG processing", variable=self.emg_filter_name,
         #                             value='pyemgpipeline', command=self.emg_filter_name_onchanged)
-
         # emg_filter_menu.add_separator()
-        #
         # emg_filter_menu.add_radiobutton(label="Gradient", variable=self.emg_filter_name,
         #                             value='gradient', command=self.emg_filter_name_onchanged)
 
