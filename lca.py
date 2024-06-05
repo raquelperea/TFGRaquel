@@ -57,6 +57,17 @@ class FileUtils:
                     reading = True
         return time_data, hammer_raw, emg_raw
 
+    @staticmethod
+    def resolve_icon_file_name(ico_file_name):
+        # https://stackoverflow.com/questions/9929479/embed-icon-in-python-script
+        try:
+            if not hasattr(sys, "frozen"):
+                ico_file_name = os.path.join(os.path.dirname(__file__), ico_file_name)
+            else:
+                ico_file_name = os.path.join(sys.prefix, ico_file_name)
+        except:
+            pass
+        return ico_file_name
 
 # static methods for signal handling
 class SignalUtils:
@@ -461,10 +472,7 @@ class LcaPlotWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency calculation app")
-        try:
-            root_window.iconbitmap(r"lca.ico")
-        except:
-            pass
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -683,10 +691,7 @@ class StatsWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency statistics")
-        try:
-            root_window.iconbitmap(r"lca.ico")
-        except:
-            pass
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -778,10 +783,7 @@ class FftWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG frequency analysis")
-        try:
-            root_window.iconbitmap(r"lca.ico")
-        except:
-            pass
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
