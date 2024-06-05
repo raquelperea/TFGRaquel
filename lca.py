@@ -879,7 +879,10 @@ class FftWindow:
 
 
 def main() -> int:
-    pyi_splash.close()
+    try:
+        pyi_splash.close()
+    except:
+        pass
 
     if len(sys.argv) > 1:
         file_name = sys.argv[1]
