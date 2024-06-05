@@ -307,24 +307,28 @@ class LcaData:
             self.emg_filtered = SignalUtils.rolling_rms_filter(self.emg_preprocessed,
                                                                self.rolling_windowsize)
         elif self.emg_filter_name == 'butter_lowpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order, self.normalized_freq(self.lowpass_cutoff_freq),
+            b, a = sp.signal.butter(self.butter_order,
+                                    self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
             self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
         elif self.emg_filter_name == 'butter_highpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order, self.normalized_freq(self.highpass_cutoff_freq),
+            b, a = sp.signal.butter(self.butter_order,
+                                    self.normalize_freq(self.highpass_cutoff_freq),
                                     btype='highpass', analog=False, output='ba')
             self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
         elif self.emg_filter_name == 'butter_bandpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order, self.normalized_freqs(self.bandpass_cutoff_freqs),
+            b, a = sp.signal.butter(self.butter_order,
+                                    self.normalize_freqs(self.bandpass_cutoff_freqs),
                                     btype='bandpass', analog=False, output='ba')
             self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
         elif self.emg_filter_name == 'butter_lowpass_lfilter':
-            b, a = sp.signal.butter(self.butter_order, self.normalized_freq(self.lowpass_cutoff_freq),
+            b, a = sp.signal.butter(self.butter_order,
+                                    self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
             self.emg_filtered = sp.signal.lfilter(b, a, self.emg_preprocessed)
         elif self.emg_filter_name == 'cheby2_lowpass_filtfilt':
             b, a = sp.signal.cheby2(self.cheby2_order, self.cheby2_stop_attenuation,
-                                    self.normalized_freq(self.lowpass_cutoff_freq),
+                                    self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
             self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
         elif self.emg_filter_name == 'notch_filtfilt':
