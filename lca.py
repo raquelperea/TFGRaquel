@@ -69,6 +69,7 @@ class FileUtils:
             pass
         return ico_file_name
 
+
 # static methods for signal handling
 class SignalUtils:
     @staticmethod
@@ -472,7 +473,7 @@ class LcaPlotWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency calculation app")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -614,9 +615,6 @@ class LcaPlotWindow:
 
         return toolbar
 
-    def run(self):
-        self.root_window.mainloop()
-
     def file_open_onclick(self):
         file_name = FileUtils.ask_open_txt_file_name()
         lca_data = LcaData(file_name)
@@ -691,7 +689,7 @@ class StatsWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG latency statistics")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -783,7 +781,7 @@ class FftWindow:
 
     def create_root_window(self, root_window):
         root_window.title("EMG frequency analysis")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name( "lca.ico"))
+        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
 
         menubar = self.create_menubar(root_window)
         root_window.config(menu=menubar)
@@ -849,13 +847,18 @@ def main() -> int:
     if not os.path.exists(file_name):
         file_name = FileUtils.ask_open_txt_file_name()
 
+    def exit_tkinter():
+        lca_plot_window.root_window.quit()
+        lca_plot_window.root_window.destroy()
+
     # open file_name
     if not os.path.exists(file_name):
         return 1
     else:
         lca_data = LcaData(file_name)
         lca_plot_window = LcaPlotWindow(lca_data)
-        lca_plot_window.run()
+        lca_plot_window.root_window.protocol("wm_delete_window", exit_tkinter)
+        lca_plot_window.root_window.mainloop()
         return 0
 
 
