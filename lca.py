@@ -101,62 +101,65 @@ class SignalUtils:
 class PlotUtils:
     @staticmethod
     def apply_scroll_event(event, xlim, ylim):
-        event_key = event.key or ''
+        try:
+            event_key = event.key or ''
 
-        if event_key.find('alt') >= 0:
-            # pan
-            if event_key.find('shift') >= 0:
-                # vertical panning
-                x_pan_factor = 0
-                y_pan_factor = 0.1
+            if event_key.find('alt') >= 0:
+                # pan
+                if event_key.find('shift') >= 0:
+                    # vertical panning
+                    x_pan_factor = 0
+                    y_pan_factor = 0.1
+                else:
+                    # horizontal panning
+                    x_pan_factor = 0.1
+                    y_pan_factor = 0
+
+                if event_key.find('control') >= 0:
+                    # fast horizontal panning
+                    x_pan_factor *= 5
+                    y_pan_factor *= 5
+
+                if event.button == 'up':
+                    x_pan = -x_pan_factor * (xlim[1] - xlim[0])
+                    y_pan = -y_pan_factor * (ylim[1] - ylim[0])
+                else:
+                    x_pan = x_pan_factor * (xlim[1] - xlim[0])
+                    y_pan = y_pan_factor * (ylim[1] - ylim[0])
+
+                new_xlim = (xlim[0] + x_pan, xlim[1] + x_pan)
+                new_ylim = (ylim[0] + y_pan, ylim[1] + y_pan)
+
             else:
-                # horizontal panning
-                x_pan_factor = 0.1
-                y_pan_factor = 0
+                # zoom
+                if event_key.find('control') >= 0:
+                    # full zoom
+                    x_scale_factor = 1.5
+                    y_scale_factor = 1.5
+                elif event_key.find('shift') >= 0:
+                    # vertical zoom
+                    x_scale_factor = 1.0
+                    y_scale_factor = 1.5
+                else:
+                    # horizontal zoom
+                    x_scale_factor = 1.5
+                    y_scale_factor = 1.0
 
-            if event_key.find('control') >= 0:
-                # fast horizontal panning
-                x_pan_factor *= 5
-                y_pan_factor *= 5
+                if event.button == 'up':
+                    x_scale = 1 / x_scale_factor
+                    y_scale = 1 / y_scale_factor
+                else:
+                    x_scale = x_scale_factor
+                    y_scale = y_scale_factor
 
-            if event.button == 'up':
-                x_pan = -x_pan_factor * (xlim[1] - xlim[0])
-                y_pan = -y_pan_factor * (ylim[1] - ylim[0])
-            else:
-                x_pan = x_pan_factor * (xlim[1] - xlim[0])
-                y_pan = y_pan_factor * (ylim[1] - ylim[0])
+                new_xlim = ([event.xdata - (event.xdata - xlim[0]) * x_scale,
+                             event.xdata + (xlim[1] - event.xdata) * x_scale])
+                new_ylim = ([event.ydata - (event.ydata - ylim[0]) * y_scale,
+                             event.ydata + (ylim[1] - event.ydata) * y_scale])
+                return new_xlim, new_ylim
 
-            new_xlim = (xlim[0] + x_pan, xlim[1] + x_pan)
-            new_ylim = (ylim[0] + y_pan, ylim[1] + y_pan)
-
-        else:
-            # zoom
-            if event_key.find('control') >= 0:
-                # full zoom
-                x_scale_factor = 1.5
-                y_scale_factor = 1.5
-            elif event_key.find('shift') >= 0:
-                # vertical zoom
-                x_scale_factor = 1.0
-                y_scale_factor = 1.5
-            else:
-                # horizontal zoom
-                x_scale_factor = 1.5
-                y_scale_factor = 1.0
-
-            if event.button == 'up':
-                x_scale = 1 / x_scale_factor
-                y_scale = 1 / y_scale_factor
-            else:
-                x_scale = x_scale_factor
-                y_scale = y_scale_factor
-
-            new_xlim = ([event.xdata - (event.xdata - xlim[0]) * x_scale,
-                         event.xdata + (xlim[1] - event.xdata) * x_scale])
-            new_ylim = ([event.ydata - (event.ydata - ylim[0]) * y_scale,
-                         event.ydata + (ylim[1] - event.ydata) * y_scale])
-
-        return new_xlim, new_ylim
+        except:
+            return xlim, ylim
 
 
 class LcaData:
@@ -176,7 +179,8 @@ class LcaData:
         self.cheby2_stop_attenuation = 40  # dB
 
         self.notch_freq = 50.0  # Frequency to be removed (notch frequency)
-        self.notch_bandwidth = 2.0  # Bandwidth of the notch in Hz
+        # self.notch_bandwidth = 2.0  # Bandwidth of the notch in Hz
+        self.notch_quality = 30.0
 
         self.savgol_windowsize = 11
         self.savgol_order = 3
@@ -206,7 +210,6 @@ class LcaData:
         self.peak_values_hammer = None
 
         self.emg_raw = None
-        self.emg_preprocessed = None
         self.emg_filtered = None
         self.emg_postprocessed = None
 
@@ -216,11 +219,10 @@ class LcaData:
 
         self.time_data, self.hammer_raw, self.emg_raw = FileUtils.read(file_name)
 
-        self.emg_preprocessed = self.emg_raw
-
         self.refresh_hammer_peaks()
 
         self.refresh_emg_filtered()
+        self.refresh_emg_peaks()
 
     def refresh_hammer_peaks(self):
         self.peak_times_hammer, self.peak_values_hammer, _ = \
@@ -228,19 +230,13 @@ class LcaData:
 
     def set_emg_filter(self, emg_filter_name):
         self.emg_filter_name = emg_filter_name
+
         self.refresh_emg_filtered()
+        self.refresh_emg_peaks()
 
     def set_emg_postprocess(self, emg_postprocess_name):
         self.emg_postprocess_name = emg_postprocess_name
         self.refresh_emg_peaks()
-
-    def reset_emg_preprocessed(self):
-        self.emg_preprocessed = self.emg_raw
-        self.refresh_emg_filtered()
-
-    def apply_current_emg_filter(self):
-        self.emg_preprocessed = self.emg_filtered
-        self.refresh_emg_filtered()
 
     def calc_stats_text(self, xlim):
         irange = SignalUtils.get_irange_from_xlim(self.time_data, xlim)
@@ -298,51 +294,47 @@ class LcaData:
 
     def refresh_emg_filtered(self):
         if self.emg_filter_name == '-':
-            self.emg_filtered = self.emg_preprocessed
+            self.emg_filtered = self.emg_raw
         elif self.emg_filter_name == 'savgol':
-            self.emg_filtered = sp.signal.savgol_filter(self.emg_preprocessed,
+            self.emg_filtered = sp.signal.savgol_filter(self.emg_raw,
                                                         window_length=self.savgol_windowsize,
                                                         polyorder=self.savgol_order)
         elif self.emg_filter_name == 'rolling_rms':
-            self.emg_filtered = SignalUtils.rolling_rms_filter(self.emg_preprocessed,
+            self.emg_filtered = SignalUtils.rolling_rms_filter(self.emg_raw,
                                                                self.rolling_windowsize)
         elif self.emg_filter_name == 'butter_lowpass_filtfilt':
             b, a = sp.signal.butter(self.butter_order,
                                     self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
+            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_highpass_filtfilt':
             b, a = sp.signal.butter(self.butter_order,
                                     self.normalize_freq(self.highpass_cutoff_freq),
                                     btype='highpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
+            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_bandpass_filtfilt':
             b, a = sp.signal.butter(self.butter_order,
                                     self.normalize_freqs(self.bandpass_cutoff_freqs),
                                     btype='bandpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
+            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_lowpass_lfilter':
             b, a = sp.signal.butter(self.butter_order,
                                     self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_preprocessed)
+            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_raw)
         elif self.emg_filter_name == 'cheby2_lowpass_filtfilt':
             b, a = sp.signal.cheby2(self.cheby2_order, self.cheby2_stop_attenuation,
                                     self.normalize_freq(self.lowpass_cutoff_freq),
                                     btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
+            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'notch_filtfilt':
-            Q = self.notch_freq / self.notch_bandwidth  # Quality factor
-            b, a = sp.signal.iirnotch(self.notch_freq, Q, self.sampling_freq)
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_preprocessed)
+            b, a = sp.signal.iirnotch(self.normalize_freq(self.notch_freq), self.notch_quality)
+            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'notch_lfilter':
-            Q = self.notch_freq / self.notch_bandwidth  # Quality factor
-            b, a = sp.self.emg_preprocessed.iirnotch(self.notch_freq, Q, self.sampling_freq)
-            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_preprocessed)
+            b, a = sp.self.emg_raw.iirnotch(self.notch_freq, self.notch_quality, self.sampling_freq)
+            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_raw)
         else:
             raise "Unknown filter name"
-
-        self.refresh_emg_peaks()
 
     def refresh_emg_peaks(self):
         if self.emg_postprocess_name == 'max':
@@ -391,17 +383,14 @@ class LcaPlot:
                                                         label="Hammer peaks", alpha=0.7)
 
         self.emg_raw_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_raw,
-                                                label="EMG raw", color='blue', linewidth=1,
-                                                linestyle='dotted', alpha=0.3)
-        self.emg_preprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_preprocessed,
-                                                         label="EMG applied filters", color='blue',
-                                                         linewidth=1,linestyle='dashed', alpha=0.3)
+                                                label="EMG raw", color='blue',
+                                                linewidth=1, linestyle='dashed', alpha=0.3)
         self.emg_filtered_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_filtered,
-                                                     label="EMG current filter", color='blue',
-                                                     linewidth=1.2, alpha=0.8)
+                                                     label="EMG filtered", color='blue',
+                                                     linewidth=1, alpha=0.8)
         self.emg_postprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_postprocessed,
                                                           label="EMG gradient", color='blue',
-                                                          linewidth=0.5, alpha=0.5)
+                                                          linestyle='dotted', linewidth=0.8, alpha=0.5)
         self.emg_peak_plot, = self.emg_axes.plot(self.lca_data.peak_times_emg, self.lca_data.peak_values_emg,
                                                  'bo', markerfacecolor='none', markeredgecolor='blue',
                                                  label="EMG peaks", alpha=0.7)
@@ -440,23 +429,6 @@ class LcaPlot:
     def set_emg_postprocess(self, emg_postprocess_name):
         self.lca_data.set_emg_postprocess(emg_postprocess_name)
 
-        self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
-        self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
-
-    def reset_emg_preprocessed(self):
-        self.lca_data.reset_emg_preprocessed()
-
-        self.emg_preprocessed_plot.set_ydata(self.lca_data.emg_preprocessed)
-        self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
-        self.emg_postprocessed_plot.set_ydata(self.lca_data.emg_postprocessed)
-        self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
-        self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
-
-    def apply_current_emg_filter(self):
-        self.lca_data.apply_current_emg_filter()
-
-        self.emg_preprocessed_plot.set_ydata(self.lca_data.emg_preprocessed)
-        self.emg_filtered_plot.set_ydata(self.lca_data.emg_filtered)
         self.emg_postprocessed_plot.set_ydata(self.lca_data.emg_postprocessed)
         self.emg_peak_plot.set_xdata(self.lca_data.peak_times_emg)
         self.emg_peak_plot.set_ydata(self.lca_data.peak_values_emg)
@@ -476,7 +448,6 @@ class LcaPlotWindow:
         # self.show_hammer_filtered_plot = tk.IntVar(master=self.root_window, value=0)
         self.show_hammer_peaks_plot = tk.IntVar(master=self.root_window, value=1)
         self.show_emg_raw_plot = tk.IntVar(master=self.root_window, value=1)
-        self.show_emg_preprocessed_plot = tk.IntVar(master=self.root_window, value=1)
         self.show_emg_filtered_plot = tk.IntVar(master=self.root_window, value=1)
         self.show_emg_peaks_plot = tk.IntVar(master=self.root_window, value=1)
 
@@ -526,11 +497,8 @@ class LcaPlotWindow:
         view_menu = self.create_view_menu(menubar)
         menubar.add_cascade(label="View", menu=view_menu)
 
-        emg_preprocess_menu = self.create_emg_preprocess_menu(menubar)
-        menubar.add_cascade(label="Applied filters", menu=emg_preprocess_menu)
-
         emg_filter_menu = self.create_emg_filter_menu(menubar)
-        menubar.add_cascade(label="Current filter", menu=emg_filter_menu)
+        menubar.add_cascade(label="Filter", menu=emg_filter_menu)
 
         analyze_menu = self.create_analyze_menu(menubar)
         menubar.add_cascade(label="Analyze", menu=analyze_menu)
@@ -559,8 +527,6 @@ class LcaPlotWindow:
                                   command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG (raw)", variable=self.show_emg_raw_plot,
                                   command=self.show_any_plot_onchanged)
-        view_menu.add_checkbutton(label="EMG (signal)", variable=self.show_emg_preprocessed_plot,
-                                  command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG (filtered)", variable=self.show_emg_filtered_plot,
                                   command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG peaks", variable=self.show_emg_peaks_plot,
@@ -571,16 +537,6 @@ class LcaPlotWindow:
         view_menu.add_command(label="Reset zoom", command=self.view_reset_zoom_onclick)
 
         return view_menu
-
-    def create_emg_preprocess_menu(self, menubar):
-        emg_preprocess_menu = tk.Menu(menubar, tearoff=False)
-
-        emg_preprocess_menu.add_command(label="Apply current filter",
-                                        command=self.emg_preprocess_apply_current_filter_onclick)
-
-        emg_preprocess_menu.add_command(label="Reset to raw signal", command=self.emg_preprocess_reset_onclick)
-
-        return emg_preprocess_menu
 
     def create_emg_filter_menu(self, menubar):
         emg_filter_menu = tk.Menu(menubar, tearoff=False)
@@ -600,13 +556,12 @@ class LcaPlotWindow:
                                         value='butter_bandpass_filtfilt', command=self.emg_filter_name_onchanged)
         emg_filter_menu.add_radiobutton(label="Butterworth low-pass + lfilter (causal)", variable=self.emg_filter_name,
                                         value='butter_lowpass_lfilter', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt",
-                                        variable=self.emg_filter_name,
+        emg_filter_menu.add_radiobutton(label="Chebyshev (type2) low-pass + filtfilt", variable=self.emg_filter_name,
                                         value='cheby2_lowpass_filtfilt', command=self.emg_filter_name_onchanged)
         emg_filter_menu.add_radiobutton(label="Notch + filtfilt", variable=self.emg_filter_name,
                                         value='notch_filtfilt', command=self.emg_filter_name_onchanged)
-        emg_filter_menu.add_radiobutton(label="Notch + lfilter", variable=self.emg_filter_name,
-                                        value='notch_lfilter', command=self.emg_filter_name_onchanged)
+        # emg_filter_menu.add_radiobutton(label="Notch + lfilter", variable=self.emg_filter_name,
+        #                                 value='notch_lfilter', command=self.emg_filter_name_onchanged)
         # emg_filter_menu.add_radiobutton(label="Rolling RMS", variable=self.emg_filter_name,
         #                                 value='rolling_rms', command=self.emg_filter_name_onchanged)
         emg_filter_menu.add_radiobutton(label="Savitzky–Golay", variable=self.emg_filter_name,
@@ -616,6 +571,10 @@ class LcaPlotWindow:
 
     def create_analyze_menu(self, menubar):
         analyze_menu = tk.Menu(menubar, tearoff=False)
+
+        analyze_menu.add_command(label="Show frequency spectrum", command=self.analyze_show_fft_onclick)
+
+        analyze_menu.add_separator()
 
         analyze_menu.add_radiobutton(label="Use only maximums", variable=self.emg_postprocess_name,
                                      value='max', command=self.emg_postprocess_name_onchanged)
@@ -628,9 +587,7 @@ class LcaPlotWindow:
 
         analyze_menu.add_separator()
 
-        analyze_menu.add_command(label="Show statistics", command=self.analyze_show_stats_onclick)
-
-        analyze_menu.add_command(label="Show frequency analysis", command=self.analyze_show_fft_onclick)
+        analyze_menu.add_command(label="Show latency statistics", command=self.analyze_show_stats_onclick)
 
         return analyze_menu
 
@@ -653,7 +610,6 @@ class LcaPlotWindow:
         file_name = FileUtils.ask_open_txt_file_name()
         lca_data = LcaData(file_name)
         lca_plot_window = LcaPlotWindow(lca_data)
-        lca_plot_window.run()
 
     def file_close_onclick(self):
         self.root_window.destroy()
@@ -681,7 +637,6 @@ class LcaPlotWindow:
         self.lca_plot.hammer_axes.legend()
 
         self.lca_plot.emg_raw_plot.set_visible(self.show_emg_raw_plot.get())
-        self.lca_plot.emg_preprocessed_plot.set_visible(self.show_emg_preprocessed_plot.get())
         self.lca_plot.emg_filtered_plot.set_visible(self.show_emg_filtered_plot.get())
         self.lca_plot.emg_peak_plot.set_visible(self.show_emg_peaks_plot.get())
         self.lca_plot.emg_postprocessed_plot.set_visible(self.show_emg_filtered_plot.get()
@@ -698,28 +653,21 @@ class LcaPlotWindow:
         self.lca_plot.set_emg_filter(self.emg_filter_name.get())
         self.canvas.draw_idle()
 
-    def emg_preprocess_reset_onclick(self):
-        self.lca_plot.reset_emg_preprocessed()
-        self.canvas.draw_idle()
-
-    def emg_preprocess_apply_current_filter_onclick(self):
-        self.lca_plot.apply_current_emg_filter()
-        self.emg_filter_name.set('-')
-        self.canvas.draw_idle()
-
     def emg_postprocess_name_onchanged(self):
         self.lca_plot.set_emg_postprocess(self.emg_postprocess_name.get())
         self.refresh_plot()
 
     def analyze_show_fft_onclick(self):
         fft_window = FftWindow(self.root_window, self.lca_data, self.lca_plot.emg_axes.get_xlim())
-        fft_window.run()
+        fft_window.root_window.focus()
+        fft_window.root_window.grab_set()
 
     def analyze_show_stats_onclick(self):
         xlim = self.lca_plot.emg_axes.get_xlim()
         stats_text = self.lca_data.calc_stats_text(xlim)
         stats_window = StatsWindow(self.root_window, stats_text)
-        stats_window.run()
+        stats_window.root_window.focus()
+        stats_window.root_window.grab_set()
 
 
 class StatsWindow:
@@ -774,9 +722,6 @@ class StatsWindow:
     def file_close_onclick(self):
         self.root_window.destroy()
 
-    def run(self):
-        self.root_window.mainloop()
-
 
 class FftPlot:
     def __init__(self, lca_data, xlim):
@@ -793,23 +738,18 @@ class FftPlot:
 
         irange = SignalUtils.get_irange_from_xlim(self.lca_data.time_data, xlim)
         emg_raw = SignalUtils.cut_by_irange(self.lca_data.emg_raw, irange)
-        emg_preprocessed = SignalUtils.cut_by_irange(self.lca_data.emg_preprocessed, irange)
         emg_filtered = SignalUtils.cut_by_irange(self.lca_data.emg_filtered, irange)
 
-        fft_freq, fft_emg_raw = sp.signal.welch(emg_raw, fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
-        fft_freq, fft_emg_preprocessed = sp.signal.welch(emg_preprocessed, fs=lca_data.sampling_freq, window="hann",
-                                                         scaling='spectrum')
-        fft_freq, fft_emg_filtered = sp.signal.welch(emg_filtered, fs=lca_data.sampling_freq, window="hann",
-                                                     scaling='spectrum')
+        fft_freq, fft_emg_raw = sp.signal.welch(emg_raw,
+                                                fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
+        fft_freq, fft_emg_filtered = sp.signal.welch(emg_filtered,
+                                                     fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
 
         self.fft_raw_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_raw) ** 2,
                                                 label="EMG raw", color='green', linewidth=1,
                                                 alpha=0.8)
-        self.fft_preprocessed_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_preprocessed) ** 2,
-                                                         label="EMG applied filters", color='green', linewidth=1,
-                                                         alpha=0.8)
         self.fft_filtered_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_filtered) ** 2,
-                                                     label="EMG current filter", color='green',
+                                                     label="EMG filtered", color='green',
                                                      linewidth=1.2, alpha=0.8)
 
         self.fft_axes.set_xlim(0, 200)
@@ -879,9 +819,6 @@ class FftWindow:
         self.fft_plot.fft_axes.set_ylim(new_ylim[0], new_ylim[1])
 
         self.canvas.draw_idle()
-
-    def run(self):
-        self.root_window.mainloop()
 
 
 def main() -> int:
