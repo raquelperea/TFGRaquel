@@ -1,14 +1,16 @@
 import sys
 import os.path
-import tkinter as tk
 
-import matplotlib.backend_bases
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from tabulate import tabulate
-
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
+import scipy.signal
+
+import tkinter as tk
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+
+from tabulate import tabulate
 
 try:
     import pyi_splash
