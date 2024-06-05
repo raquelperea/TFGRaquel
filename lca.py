@@ -822,19 +822,23 @@ class FftWindow:
 
 
 def main() -> int:
+    # closes splash, if started using pyinstaller
     try:
         pyi_splash.close()
     except:
         pass
 
+    # reads file_name from 1st arg, if existent
     if len(sys.argv) > 1:
         file_name = sys.argv[1]
     else:
         file_name = ''
 
+    # otherwise, ask user
     if not os.path.exists(file_name):
         file_name = FileUtils.ask_open_txt_file_name()
 
+    # open file_name
     if not os.path.exists(file_name):
         return 1
     else:

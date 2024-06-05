@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --add-data "lca.ico:." --icon=lca.ico --splash=lca.png   lca.py
+pyinstaller --clean --onefile --windowed --add-data *.ico:. --icon lca.ico --splash lca.png  -d bootloader lca.py
