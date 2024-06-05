@@ -862,7 +862,7 @@ class FftWindow:
 
 
 def main() -> int:
-    if len(sys.argv) > 0:
+    if len(sys.argv) > 1:
         file_name = sys.argv[1]
     else:
         file_name = None
