@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy as sp
 
+try:
+    import pyi_splash
+except:
+    pass
+
 
 # import pyemgpipeline
 # import pandas as pd
@@ -383,12 +388,14 @@ class LcaPlot:
                                                 label="EMG raw", color='blue', linewidth=1,
                                                 linestyle='dotted', alpha=0.3)
         self.emg_preprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_preprocessed,
-                                                         label="EMG applied filters", color='blue', linewidth=1,
-                                                         linestyle='dashed', alpha=0.3)
+                                                         label="EMG applied filters", color='blue',
+                                                         linewidth=1,linestyle='dashed', alpha=0.3)
         self.emg_filtered_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_filtered,
-                                                     label="EMG filtered", color='blue', linewidth=1.2, alpha=0.8)
+                                                     label="EMG current filter", color='blue',
+                                                     linewidth=1.2, alpha=0.8)
         self.emg_postprocessed_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_postprocessed,
-                                                          label="EMG gradient", color='blue', linewidth=0.5, alpha=0.5)
+                                                          label="EMG gradient", color='blue',
+                                                          linewidth=0.5, alpha=0.5)
         self.emg_peak_plot, = self.emg_axes.plot(self.lca_data.peak_times_emg, self.lca_data.peak_values_emg,
                                                  'bo', markerfacecolor='none', markeredgecolor='blue',
                                                  label="EMG peaks", alpha=0.7)
@@ -519,8 +526,8 @@ class LcaPlotWindow:
         emg_filter_menu = self.create_emg_filter_menu(menubar)
         menubar.add_cascade(label="Current filter", menu=emg_filter_menu)
 
-        latency_menu = self.create_latency_menu(menubar)
-        menubar.add_cascade(label="Latency", menu=latency_menu)
+        analyze_menu = self.create_analyze_menu(menubar)
+        menubar.add_cascade(label="Analyze", menu=analyze_menu)
 
         return menubar
 
@@ -567,8 +574,6 @@ class LcaPlotWindow:
 
         emg_preprocess_menu.add_command(label="Reset to raw signal", command=self.emg_preprocess_reset_onclick)
 
-        emg_preprocess_menu.add_command(label="Show frequency analysis", command=self.emg_show_fft_onclick)
-
         return emg_preprocess_menu
 
     def create_emg_filter_menu(self, menubar):
@@ -603,23 +608,25 @@ class LcaPlotWindow:
 
         return emg_filter_menu
 
-    def create_latency_menu(self, menubar):
-        latency_menu = tk.Menu(menubar, tearoff=False)
+    def create_analyze_menu(self, menubar):
+        analyze_menu = tk.Menu(menubar, tearoff=False)
 
-        latency_menu.add_radiobutton(label="Use only maximums", variable=self.emg_postprocess_name,
+        analyze_menu.add_radiobutton(label="Use only maximums", variable=self.emg_postprocess_name,
                                      value='max', command=self.emg_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Use only minimums", variable=self.emg_postprocess_name,
+        analyze_menu.add_radiobutton(label="Use only minimums", variable=self.emg_postprocess_name,
                                      value='min', command=self.emg_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Use maximums & minimums", variable=self.emg_postprocess_name,
+        analyze_menu.add_radiobutton(label="Use maximums & minimums", variable=self.emg_postprocess_name,
                                      value='max+min', command=self.emg_postprocess_name_onchanged)
-        latency_menu.add_radiobutton(label="Use gradient", variable=self.emg_postprocess_name,
+        analyze_menu.add_radiobutton(label="Use gradient", variable=self.emg_postprocess_name,
                                      value='gradient', command=self.emg_postprocess_name_onchanged)
 
-        latency_menu.add_separator()
+        analyze_menu.add_separator()
 
-        latency_menu.add_command(label="Show statistics", command=self.latency_show_stats_onclick)
+        analyze_menu.add_command(label="Show statistics", command=self.analyze_show_stats_onclick)
 
-        return latency_menu
+        analyze_menu.add_command(label="Show frequency analysis", command=self.analyze_show_fft_onclick)
+
+        return analyze_menu
 
     def create_canvas(self, parent):
         canvas = FigureCanvasTkAgg(self.lca_plot.figure, master=parent)
@@ -698,11 +705,11 @@ class LcaPlotWindow:
         self.lca_plot.set_emg_postprocess(self.emg_postprocess_name.get())
         self.refresh_plot()
 
-    def emg_show_fft_onclick(self):
+    def analyze_show_fft_onclick(self):
         fft_window = FftWindow(self.root_window, self.lca_data, self.lca_plot.emg_axes.get_xlim())
         fft_window.run()
 
-    def latency_show_stats_onclick(self):
+    def analyze_show_stats_onclick(self):
         xlim = self.lca_plot.emg_axes.get_xlim()
         stats_text = self.lca_data.calc_stats_text(xlim)
         stats_window = StatsWindow(self.root_window, stats_text)
@@ -779,20 +786,30 @@ class FftPlot:
         self.fft_axes.tick_params(axis='y', labelcolor='green')
 
         irange = SignalUtils.get_irange_from_xlim(self.lca_data.time_data, xlim)
+        emg_raw = SignalUtils.cut_by_irange(self.lca_data.emg_raw, irange)
         emg_preprocessed = SignalUtils.cut_by_irange(self.lca_data.emg_preprocessed, irange)
+        emg_filtered = SignalUtils.cut_by_irange(self.lca_data.emg_filtered, irange)
 
-        # # fft_freq = np.linspace(0.0, lca_data.nyquist_freq / 4, lca_data.nyquist_freq)
-        # fft_freq = sp.fftpack.fftfreq(len(emg_preprocessed), d=1)
-        # fft_emg_preprocessed = sp.fftpack.fft(emg_preprocessed)
+        fft_freq, fft_emg_raw = sp.signal.welch(emg_raw, fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
+        fft_freq, fft_emg_preprocessed = sp.signal.welch(emg_preprocessed, fs=lca_data.sampling_freq, window="hann",
+                                                         scaling='spectrum')
+        fft_freq, fft_emg_filtered = sp.signal.welch(emg_filtered, fs=lca_data.sampling_freq, window="hann",
+                                                     scaling='spectrum')
 
-        fft_freq, fft_emg_preprocessed = sp.signal.welch(emg_preprocessed, fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
-
+        self.fft_raw_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_raw) ** 2,
+                                                label="EMG raw", color='green', linewidth=1,
+                                                alpha=0.8)
         self.fft_preprocessed_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_preprocessed) ** 2,
-                                                         label="FFT applied filters", color='green', linewidth=1,
+                                                         label="EMG applied filters", color='green', linewidth=1,
                                                          alpha=0.8)
+        self.fft_filtered_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_filtered) ** 2,
+                                                     label="EMG current filter", color='green',
+                                                     linewidth=1.2, alpha=0.8)
 
         self.fft_axes.set_xlim(0, 200)
         # self.fft_axes.set_ylim(0, 0.01)
+
+        self.fft_axes.legend()
 
 
 class FftWindow:
@@ -862,10 +879,12 @@ class FftWindow:
 
 
 def main() -> int:
+    pyi_splash.close()
+
     if len(sys.argv) > 1:
         file_name = sys.argv[1]
     else:
-        file_name = None
+        file_name = ''
 
     if not os.path.exists(file_name):
         file_name = FileUtils.ask_open_txt_file_name()

@@ -1,1 +1,1 @@
-pyinstaller --onefile --windowed --add-data "lca.ico:." --icon=lca.ico lca.py
+pyinstaller --onefile --windowed --add-data "lca.ico:." --icon=lca.ico --splash=lca.png   lca.py
