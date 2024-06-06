@@ -130,11 +130,11 @@ class PlotUtils:
                     y_pan_factor *= 5
 
                 if event.button == 'up':
-                    x_pan = -x_pan_factor * (xlim[1] - xlim[0])
-                    y_pan = -y_pan_factor * (ylim[1] - ylim[0])
-                else:
                     x_pan = x_pan_factor * (xlim[1] - xlim[0])
                     y_pan = y_pan_factor * (ylim[1] - ylim[0])
+                else:
+                    x_pan = -x_pan_factor * (xlim[1] - xlim[0])
+                    y_pan = -y_pan_factor * (ylim[1] - ylim[0])
 
                 new_xlim = (xlim[0] + x_pan, xlim[1] + x_pan)
                 new_ylim = (ylim[0] + y_pan, ylim[1] + y_pan)
