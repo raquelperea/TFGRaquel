@@ -67,7 +67,6 @@ class FileUtils:
             return os.path.join(sys.prefix, ico_file_name)
 
 
-
 # static methods for signal handling
 class SignalUtils:
     @staticmethod
@@ -299,7 +298,7 @@ class LcaData:
         return freq / self.nyquist_freq
 
     def normalize_freqs(self, freqs):
-        return (self.normalize_freq(freqs[0]) / self.normalize_freq(freqs[1]))
+        return (self.normalize_freq(freqs[0]), self.normalize_freq(freqs[1]))
 
     def refresh_emg_filtered(self):
         if self.emg_filter_name == '-':
@@ -479,7 +478,6 @@ class LcaPlotWindow:
         lca_toolbar = self.create_toolbar(self.lca_canvas, lca_frame)
 
         self.refresh_plot()
-
 
     def create_menubar(self, parent):
         menubar = tk.Menu(parent)
