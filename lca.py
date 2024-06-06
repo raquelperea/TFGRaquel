@@ -2,8 +2,8 @@ import sys
 import os.path
 
 import numpy as np
-import scipy as sp
-import scipy.signal
+# import scipy as sp
+import scipy.signal as signal
 
 import tkinter as tk
 
@@ -90,7 +90,7 @@ class SignalUtils:
     @staticmethod
     def find_peaks(xdata, ydata, ydata_src, height):
         # Find only peaks with a minimum height
-        ipeaks, _ = sp.signal.find_peaks(ydata, height=height)
+        ipeaks, _ = signal.find_peaks(ydata, height=height)
 
         xpeaks = [round(xdata[i], 3) for i in ipeaks]
         ypeaks = [round(ydata[i], 3) for i in ipeaks]
@@ -105,7 +105,7 @@ class SignalUtils:
         window = np.ones(window_size) / float(window_size)
 
         return np.sqrt(
-            sp.signal.fftconvolve(
+            signal.fftconvolve(
                 np.power(signal, 2),
                 window, mode='same'))
 
@@ -308,43 +308,43 @@ class LcaData:
         if self.emg_filter_name == '-':
             self.emg_filtered = self.emg_raw
         elif self.emg_filter_name == 'savgol':
-            self.emg_filtered = sp.signal.savgol_filter(self.emg_raw,
-                                                        window_length=self.savgol_windowsize,
-                                                        polyorder=self.savgol_order)
+            self.emg_filtered = signal.savgol_filter(self.emg_raw,
+                                                     window_length=self.savgol_windowsize,
+                                                     polyorder=self.savgol_order)
         elif self.emg_filter_name == 'rolling_rms':
             self.emg_filtered = SignalUtils.rolling_rms_filter(self.emg_raw,
                                                                self.rolling_windowsize)
         elif self.emg_filter_name == 'butter_lowpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order,
-                                    self.normalize_freq(self.lowpass_cutoff_freq),
-                                    btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
+            b, a = signal.butter(self.butter_order,
+                                 self.normalize_freq(self.lowpass_cutoff_freq),
+                                 btype='lowpass', analog=False, output='ba')
+            self.emg_filtered = signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_highpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order,
-                                    self.normalize_freq(self.highpass_cutoff_freq),
-                                    btype='highpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
+            b, a = signal.butter(self.butter_order,
+                                 self.normalize_freq(self.highpass_cutoff_freq),
+                                 btype='highpass', analog=False, output='ba')
+            self.emg_filtered = signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_bandpass_filtfilt':
-            b, a = sp.signal.butter(self.butter_order,
-                                    self.normalize_freqs(self.bandpass_cutoff_freqs),
-                                    btype='bandpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
+            b, a = signal.butter(self.butter_order,
+                                 self.normalize_freqs(self.bandpass_cutoff_freqs),
+                                 btype='bandpass', analog=False, output='ba')
+            self.emg_filtered = signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'butter_lowpass_lfilter':
-            b, a = sp.signal.butter(self.butter_order,
-                                    self.normalize_freq(self.lowpass_cutoff_freq),
-                                    btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_raw)
+            b, a = signal.butter(self.butter_order,
+                                 self.normalize_freq(self.lowpass_cutoff_freq),
+                                 btype='lowpass', analog=False, output='ba')
+            self.emg_filtered = signal.lfilter(b, a, self.emg_raw)
         elif self.emg_filter_name == 'cheby2_lowpass_filtfilt':
-            b, a = sp.signal.cheby2(self.cheby2_order, self.cheby2_stop_attenuation,
-                                    self.normalize_freq(self.lowpass_cutoff_freq),
-                                    btype='lowpass', analog=False, output='ba')
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
+            b, a = signal.cheby2(self.cheby2_order, self.cheby2_stop_attenuation,
+                                 self.normalize_freq(self.lowpass_cutoff_freq),
+                                 btype='lowpass', analog=False, output='ba')
+            self.emg_filtered = signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'notch_filtfilt':
-            b, a = sp.signal.iirnotch(self.normalize_freq(self.notch_freq), self.notch_quality)
-            self.emg_filtered = sp.signal.filtfilt(b, a, self.emg_raw)
+            b, a = signal.iirnotch(self.normalize_freq(self.notch_freq), self.notch_quality)
+            self.emg_filtered = signal.filtfilt(b, a, self.emg_raw)
         elif self.emg_filter_name == 'notch_lfilter':
-            b, a = sp.self.emg_raw.iirnotch(self.notch_freq, self.notch_quality, self.sampling_freq)
-            self.emg_filtered = sp.signal.lfilter(b, a, self.emg_raw)
+            b, a = signal.iirnotch(self.normalize_freq(self.notch_freq), self.notch_quality)
+            self.emg_filtered = signal.lfilter(b, a, self.emg_raw)
         else:
             raise "Unknown filter name"
 
@@ -622,6 +622,7 @@ class LcaPlotWindow:
 
     def file_close_onclick(self):
         self.root_window.destroy()
+        self.root_window.quit()
 
     def show_any_plot_onchanged(self):
         self.refresh_plot()
@@ -742,17 +743,20 @@ class FftPlot:
         self.fft_axes.set_title(lca_data.name)
         self.fft_axes.grid(True, linestyle='--', alpha=0.7)
         self.fft_axes.set_xlabel("Freq(Hz)")
-        self.fft_axes.set_ylabel("Power", color='green')
+        # scaling = 'spectrum'
+        # self.fft_axes.set_ylabel("Power", color='green')
+        scaling = 'density'
+        self.fft_axes.set_ylabel("Density", color='green')
         self.fft_axes.tick_params(axis='y', labelcolor='green')
 
         irange = SignalUtils.get_irange_from_xlim(self.lca_data.time_data, xlim)
         emg_raw = SignalUtils.cut_by_irange(self.lca_data.emg_raw, irange)
         emg_filtered = SignalUtils.cut_by_irange(self.lca_data.emg_filtered, irange)
 
-        fft_freq, fft_emg_raw = sp.signal.welch(emg_raw,
-                                                fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
-        fft_freq, fft_emg_filtered = sp.signal.welch(emg_filtered,
-                                                     fs=lca_data.sampling_freq, window="hann", scaling='spectrum')
+        fft_freq, fft_emg_raw = signal.welch(emg_raw,
+                                             fs=lca_data.sampling_freq, window="hann", scaling=scaling)
+        fft_freq, fft_emg_filtered = signal.welch(emg_filtered,
+                                                  fs=lca_data.sampling_freq, window="hann", scaling=scaling)
 
         self.fft_raw_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_raw) ** 2,
                                                 label="EMG raw", color='green', linewidth=1,
@@ -847,9 +851,10 @@ def main() -> int:
     if not os.path.exists(file_name):
         file_name = FileUtils.ask_open_txt_file_name()
 
-    def exit_tkinter():
+    def root_window_onclose():
         lca_plot_window.root_window.quit()
         lca_plot_window.root_window.destroy()
+        sys.exit()
 
     # open file_name
     if not os.path.exists(file_name):
@@ -857,7 +862,7 @@ def main() -> int:
     else:
         lca_data = LcaData(file_name)
         lca_plot_window = LcaPlotWindow(lca_data)
-        lca_plot_window.root_window.protocol("wm_delete_window", exit_tkinter)
+        lca_plot_window.root_window.protocol("wm_delete_window", root_window_onclose)
         lca_plot_window.root_window.mainloop()
         return 0
 
