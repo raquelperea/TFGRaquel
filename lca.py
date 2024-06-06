@@ -12,6 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 from tabulate import tabulate
 
+# pyinstaller modules are only present when using it
 try:
     import pyi_splash
 except:
@@ -810,7 +811,7 @@ class FftWindow:
 
 
 def main() -> int:
-    # closes splash, if started using pyinstaller
+    # closes splash, if using pyinstaller
     try:
         pyi_splash.close()
     except:
