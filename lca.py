@@ -38,7 +38,7 @@ class FileUtils:
         return file_name
 
     @staticmethod
-    def read(file_name):
+    def read_lca_txt_file(file_name):
         time_data = []
         hammer_raw = []
         emg_raw = []
@@ -60,14 +60,12 @@ class FileUtils:
     @staticmethod
     def resolve_icon_file_name(ico_file_name):
         # https://stackoverflow.com/questions/9929479/embed-icon-in-python-script
-        try:
-            if not hasattr(sys, "frozen"):
-                ico_file_name = os.path.join(os.path.dirname(__file__), ico_file_name)
-            else:
-                ico_file_name = os.path.join(sys.prefix, ico_file_name)
-        except:
-            pass
-        return ico_file_name
+        if not hasattr(sys, "frozen"):
+            # return os.path.join(os.path.dirname(__file__), ico_file_name)
+            return ico_file_name
+        else:
+            return os.path.join(sys.prefix, ico_file_name)
+
 
 
 # static methods for signal handling
@@ -176,6 +174,7 @@ class PlotUtils:
 
 class LcaData:
     def __init__(self, file_name):
+        ##########################
         # Filter configuration
 
         self.sampling_freq = 1000  # Hz
@@ -199,15 +198,13 @@ class LcaData:
 
         self.rolling_windowsize = 5
 
-        # self.notch_attenuation = 20  # Desired attenuation at 50 Hz in dB
-
-        ###
+        ##########################
 
         self.emg_filter_name = '-'  # no filter
 
         self.emg_postprocess_name = 'max'
 
-        ###
+        ##########################
 
         self.file_name = file_name
         self.name = file_name.split('/')[-1].replace('.txt', '')
@@ -229,7 +226,7 @@ class LcaData:
         self.peak_times_emg = None
         self.peak_values_emg = None
 
-        self.time_data, self.hammer_raw, self.emg_raw = FileUtils.read(file_name)
+        self.time_data, self.hammer_raw, self.emg_raw = FileUtils.read_lca_txt_file(file_name)
 
         self.refresh_hammer_peaks()
 
@@ -450,55 +447,39 @@ class LcaPlotWindow:
 
     def __init__(self, lca_data):
         self.lca_data = lca_data
-        self.lca_plot = LcaPlot(lca_data)
+        self.lca_plot = None
 
-        # Cannot create variables before root_window is created
-        self.root_window = tk.Tk()
-        self.canvas = None
+        # Cannot create variables before window is created
+        self.window = tk.Tk()
 
-        self.show_hammer_raw_plot = tk.IntVar(master=self.root_window, value=1)
-        # self.show_hammer_filtered_plot = tk.IntVar(master=self.root_window, value=0)
-        self.show_hammer_peaks_plot = tk.IntVar(master=self.root_window, value=1)
-        self.show_emg_raw_plot = tk.IntVar(master=self.root_window, value=1)
-        self.show_emg_filtered_plot = tk.IntVar(master=self.root_window, value=1)
-        self.show_emg_peaks_plot = tk.IntVar(master=self.root_window, value=1)
+        self.show_hammer_raw_plot = tk.IntVar(master=self.window, value=1)
+        # self.show_hammer_filtered_plot = tk.IntVar(master=self.window, value=0)
+        self.show_hammer_peaks_plot = tk.IntVar(master=self.window, value=1)
+        self.show_emg_raw_plot = tk.IntVar(master=self.window, value=1)
+        self.show_emg_filtered_plot = tk.IntVar(master=self.window, value=1)
+        self.show_emg_peaks_plot = tk.IntVar(master=self.window, value=1)
 
-        self.emg_filter_name = tk.StringVar(master=self.root_window, value=lca_data.emg_filter_name)
+        self.emg_filter_name = tk.StringVar(master=self.window, value=lca_data.emg_filter_name)
 
-        self.emg_postprocess_name = tk.StringVar(master=self.root_window, value=lca_data.emg_postprocess_name)
+        self.emg_postprocess_name = tk.StringVar(master=self.window, value=lca_data.emg_postprocess_name)
 
-        self.create_root_window(self.root_window)
+        self.window.title("EMG latency calculation app")
+        self.window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
+
+        menubar = self.create_menubar(self.window)
+        self.window.config(menu=menubar)
+
+        lca_frame = tk.Frame(self.window)
+        lca_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.lca_canvas = self.create_lca_canvas(lca_frame)
+        canvas_widget = self.lca_canvas.get_tk_widget()
+        canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        lca_toolbar = self.create_toolbar(self.lca_canvas, lca_frame)
 
         self.refresh_plot()
 
-    def create_root_window(self, root_window):
-        root_window.title("EMG latency calculation app")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
-
-        menubar = self.create_menubar(root_window)
-        root_window.config(menu=menubar)
-
-        # frame = tk.Frame(window)
-        # frame.pack()
-        frame = tk.Frame(root_window)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        # scrollbar_x = tk.Scrollbar(frame, orient="horizontal", command=self.lca_plot.hammer_axes.set_xlim)
-        # scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
-        #
-        # scrollbar_y = tk.Scrollbar(frame, orient="vertical", command=self.lca_plot.hammer_axes.set_ylim)
-        # scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # bottom_frame = tk.Frame(window)
-        # bottom_frame.pack(side=tk.BOTTOM)
-
-        self.canvas = self.create_canvas(frame)
-        canvas_widget = self.canvas.get_tk_widget()
-        canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        toolbar = self.create_toolbar(self.canvas, frame)
-
-        return root_window
 
     def create_menubar(self, parent):
         menubar = tk.Menu(parent)
@@ -537,9 +518,9 @@ class LcaPlotWindow:
                                   command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="Hammer peaks", variable=self.show_hammer_peaks_plot,
                                   command=self.show_any_plot_onchanged)
-        view_menu.add_checkbutton(label="EMG (raw)", variable=self.show_emg_raw_plot,
+        view_menu.add_checkbutton(label="EMG raw", variable=self.show_emg_raw_plot,
                                   command=self.show_any_plot_onchanged)
-        view_menu.add_checkbutton(label="EMG (filtered)", variable=self.show_emg_filtered_plot,
+        view_menu.add_checkbutton(label="EMG filtered", variable=self.show_emg_filtered_plot,
                                   command=self.show_any_plot_onchanged)
         view_menu.add_checkbutton(label="EMG peaks", variable=self.show_emg_peaks_plot,
                                   command=self.show_any_plot_onchanged)
@@ -555,8 +536,6 @@ class LcaPlotWindow:
 
         emg_filter_menu.add_radiobutton(label="No filter", variable=self.emg_filter_name,
                                         value='-', command=self.emg_filter_name_onchanged)
-        # emg_filter_menuemg_filter_menu.add_radiobutton(label="Default (rolling RMS)", variable=self.emg_filter_name,
-        #                             value='default', command=self.emg_filter_name_onchanged)
 
         emg_filter_menu.add_separator()
 
@@ -603,11 +582,12 @@ class LcaPlotWindow:
 
         return analyze_menu
 
-    def create_canvas(self, parent):
-        canvas = FigureCanvasTkAgg(self.lca_plot.figure, master=parent)
-        canvas.mpl_connect('scroll_event', self.canvas_onmousescroll)
+    def create_lca_canvas(self, parent):
+        self.lca_plot = LcaPlot(self.lca_data)
+        lca_canvas = FigureCanvasTkAgg(self.lca_plot.figure, master=parent)
+        lca_canvas.mpl_connect('scroll_event', self.lca_canvas_onmousescroll)
 
-        return canvas
+        return lca_canvas
 
     def create_toolbar(self, canvas, parent):
         toolbar = NavigationToolbar2Tk(canvas, parent)
@@ -621,13 +601,13 @@ class LcaPlotWindow:
         lca_plot_window = LcaPlotWindow(lca_data)
 
     def file_close_onclick(self):
-        self.root_window.destroy()
-        self.root_window.quit()
+        self.window.destroy()
+        self.window.quit()
 
     def show_any_plot_onchanged(self):
         self.refresh_plot()
 
-    def canvas_onmousescroll(self, event):
+    def lca_canvas_onmousescroll(self, event):
         xlim = self.lca_plot.emg_axes.get_xlim()
         ylim = self.lca_plot.emg_axes.get_ylim()
         new_xlim, new_ylim = PlotUtils.apply_scroll_event(event, xlim, ylim)
@@ -638,7 +618,7 @@ class LcaPlotWindow:
         self.lca_plot.emg_axes.set_xlim(new_xlim[0], new_xlim[1])
         self.lca_plot.emg_axes.set_ylim(new_ylim[0], new_ylim[1])
 
-        self.canvas.draw_idle()
+        self.lca_canvas.draw_idle()
 
     def refresh_plot(self):
         self.lca_plot.hammer_raw_plot.set_visible(self.show_hammer_raw_plot.get())
@@ -658,49 +638,46 @@ class LcaPlotWindow:
 
         self.lca_plot.emg_axes.legend(loc='upper right')
 
-        self.canvas.draw_idle()
+        self.lca_canvas.draw_idle()
 
     def view_reset_zoom_onclick(self):
         self.lca_plot.reset_zoom()
-        self.canvas.draw_idle()
+        self.lca_canvas.draw_idle()
 
     def emg_filter_name_onchanged(self):
         self.lca_plot.set_emg_filter(self.emg_filter_name.get())
-        self.canvas.draw_idle()
+        self.lca_canvas.draw_idle()
 
     def emg_postprocess_name_onchanged(self):
         self.lca_plot.set_emg_postprocess(self.emg_postprocess_name.get())
         self.refresh_plot()
 
     def analyze_show_fft_onclick(self):
-        fft_window = FftWindow(self.root_window, self.lca_data, self.lca_plot.emg_axes.get_xlim())
-        fft_window.root_window.focus()
-        fft_window.root_window.grab_set()
+        fft_window = FftWindow(self.window, self.lca_data, self.lca_plot.emg_axes.get_xlim())
+        fft_window.window.focus()
+        fft_window.window.grab_set()
 
     def analyze_show_stats_onclick(self):
         xlim = self.lca_plot.emg_axes.get_xlim()
         stats_text = self.lca_data.calc_stats_text(xlim)
-        stats_window = StatsWindow(self.root_window, stats_text)
-        stats_window.root_window.focus()
-        stats_window.root_window.grab_set()
+        stats_window = StatsWindow(self.window, stats_text)
+        stats_window.window.focus()
+        stats_window.window.grab_set()
 
 
 class StatsWindow:
     def __init__(self, parent, stats_text):
         self.stats_text = stats_text
 
-        self.root_window = tk.Toplevel(parent)
+        self.window = tk.Toplevel(parent)
 
-        self.create_root_window(self.root_window)
+        self.window.title("EMG latency statistics")
+        self.window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
 
-    def create_root_window(self, root_window):
-        root_window.title("EMG latency statistics")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
+        menubar = self.create_menubar(self.window)
+        self.window.config(menu=menubar)
 
-        menubar = self.create_menubar(root_window)
-        root_window.config(menu=menubar)
-
-        frame = tk.Frame(root_window)
+        frame = tk.Frame(self.window)
         frame.pack(fill=tk.BOTH, expand=True)
 
         text = tk.Text(frame, font=('Courier', 10), wrap=tk.NONE)
@@ -735,7 +712,7 @@ class StatsWindow:
                 file.write(self.stats_text)
 
     def file_close_onclick(self):
-        self.root_window.destroy()
+        self.window.destroy()
 
 
 class FftPlot:
@@ -783,26 +760,20 @@ class FftWindow:
 
         self.fft_plot = FftPlot(lca_data, xlim)
 
-        self.root_window = tk.Toplevel(parent)
-        self.canvas = None
+        self.window = tk.Toplevel(parent)
 
-        self.create_root_window(self.root_window)
+        self.window.title("EMG frequency spectrum")
+        self.window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
 
-    def create_root_window(self, root_window):
-        root_window.title("EMG frequency analysis")
-        root_window.iconbitmap(FileUtils.resolve_icon_file_name("lca.ico"))
+        menubar = self.create_menubar(self.window)
+        self.window.config(menu=menubar)
 
-        menubar = self.create_menubar(root_window)
-        root_window.config(menu=menubar)
+        fft_frame = tk.Frame(self.window)
+        fft_frame.pack(fill=tk.BOTH, expand=True)
 
-        frame = tk.Frame(root_window)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        self.canvas = self.create_canvas(frame)
-        canvas_widget = self.canvas.get_tk_widget()
-        canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        return root_window
+        self.fft_canvas = self.create_fft_canvas(fft_frame)
+        fft_canvas_widget = self.fft_canvas.get_tk_widget()
+        fft_canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     def create_menubar(self, parent):
         menubar = tk.Menu(parent)
@@ -812,11 +783,11 @@ class FftWindow:
 
         return menubar
 
-    def create_canvas(self, parent):
-        canvas = FigureCanvasTkAgg(self.fft_plot.figure, master=parent)
-        canvas.mpl_connect('scroll_event', self.canvas_onmousescroll)
+    def create_fft_canvas(self, parent):
+        fft_canvas = FigureCanvasTkAgg(self.fft_plot.figure, master=parent)
+        fft_canvas.mpl_connect('scroll_event', self.fft_canvas_onmousescroll)
 
-        return canvas
+        return fft_canvas
 
     def create_file_menu(self, menubar):
         file_menu = tk.Menu(menubar, tearoff=False)
@@ -826,9 +797,9 @@ class FftWindow:
         return file_menu
 
     def file_close_onclick(self):
-        self.root_window.destroy()
+        self.window.destroy()
 
-    def canvas_onmousescroll(self, event):
+    def fft_canvas_onmousescroll(self, event):
         xlim = self.fft_plot.fft_axes.get_xlim()
         ylim = self.fft_plot.fft_axes.get_ylim()
         new_xlim, new_ylim = PlotUtils.apply_scroll_event(event, xlim, ylim)
@@ -836,7 +807,7 @@ class FftWindow:
         self.fft_plot.fft_axes.set_xlim(new_xlim[0], new_xlim[1])
         self.fft_plot.fft_axes.set_ylim(new_ylim[0], new_ylim[1])
 
-        self.canvas.draw_idle()
+        self.fft_canvas.draw_idle()
 
 
 def main() -> int:
@@ -856,9 +827,9 @@ def main() -> int:
     if not os.path.exists(file_name):
         file_name = FileUtils.ask_open_txt_file_name()
 
-    def root_window_onclose():
-        lca_plot_window.root_window.quit()
-        lca_plot_window.root_window.destroy()
+    def window_onclose():
+        lca_plot_window.window.quit()
+        lca_plot_window.window.destroy()
         sys.exit()
 
     # open file_name
@@ -867,8 +838,8 @@ def main() -> int:
     else:
         lca_data = LcaData(file_name)
         lca_plot_window = LcaPlotWindow(lca_data)
-        lca_plot_window.root_window.protocol("wm_delete_window", root_window_onclose)
-        lca_plot_window.root_window.mainloop()
+        lca_plot_window.window.protocol("wm_delete_window", window_onclose)
+        lca_plot_window.window.mainloop()
         return 0
 
 
