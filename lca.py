@@ -393,7 +393,7 @@ class LcaPlot:
 
         self.emg_raw_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_raw,
                                                 label="EMG raw", color='blue',
-                                                linewidth=1, linestyle='dashed', alpha=0.3)
+                                                linewidth=1, linestyle='solid', alpha=0.3)
         self.emg_filtered_plot, = self.emg_axes.plot(self.lca_data.time_data, self.lca_data.emg_filtered,
                                                      label="EMG filtered", color='blue',
                                                      linewidth=1, alpha=0.8)
@@ -742,7 +742,7 @@ class FftPlot:
 
         self.fft_raw_plot, = self.fft_axes.plot(fft_freq, fft_emg_raw,
                                                 label="EMG raw", color='green',
-                                                linewidth=1, linestyle='dashed', alpha=0.3)
+                                                linewidth=1, linestyle='solid', alpha=0.3)
         self.fft_filtered_plot, = self.fft_axes.plot(fft_freq, fft_emg_filtered,
                                                      label="EMG filtered", color='green',
                                                      linewidth=1, alpha=0.8)
