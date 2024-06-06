@@ -165,7 +165,8 @@ class PlotUtils:
                              event.xdata + (xlim[1] - event.xdata) * x_scale])
                 new_ylim = ([event.ydata - (event.ydata - ylim[0]) * y_scale,
                              event.ydata + (ylim[1] - event.ydata) * y_scale])
-                return new_xlim, new_ylim
+
+            return new_xlim, new_ylim
 
         except:
             return xlim, ylim
