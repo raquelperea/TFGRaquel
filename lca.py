@@ -187,8 +187,8 @@ class LcaData:
 
         self.butter_order = 2
 
-        self.cheby2_order = 6
-        self.cheby2_stop_attenuation = 20  # dB
+        self.cheby2_order = 20
+        self.cheby2_stop_attenuation = 40  # dB
 
         self.notch_freq = 50.0  # Frequency to be removed (notch frequency)
         # self.notch_bandwidth = 2.0  # Bandwidth of the notch in Hz
