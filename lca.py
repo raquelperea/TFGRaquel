@@ -187,8 +187,8 @@ class LcaData:
 
         self.butter_order = 2
 
-        self.cheby2_order = 2
-        self.cheby2_stop_attenuation = 40  # dB
+        self.cheby2_order = 6
+        self.cheby2_stop_attenuation = 20  # dB
 
         self.notch_freq = 50.0  # Frequency to be removed (notch frequency)
         # self.notch_bandwidth = 2.0  # Bandwidth of the notch in Hz
@@ -644,14 +644,19 @@ class LcaPlotWindow:
         self.lca_plot.hammer_raw_plot.set_visible(self.show_hammer_raw_plot.get())
         # self.lca_plot.hammer_filtered_plot.set_visible(self.show_hammer_filtered_plot.get())
         self.lca_plot.hammer_peaks_plot.set_visible(self.show_hammer_peaks_plot.get())
-        self.lca_plot.hammer_axes.legend()
+        self.lca_plot.hammer_axes.legend(loc='upper left')
 
         self.lca_plot.emg_raw_plot.set_visible(self.show_emg_raw_plot.get())
         self.lca_plot.emg_filtered_plot.set_visible(self.show_emg_filtered_plot.get())
         self.lca_plot.emg_peak_plot.set_visible(self.show_emg_peaks_plot.get())
-        self.lca_plot.emg_postprocessed_plot.set_visible(self.show_emg_filtered_plot.get()
-                                                         and self.emg_postprocess_name.get() == 'gradient')
-        self.lca_plot.emg_axes.legend()
+        show_emg_postprocessed_plot = self.show_emg_filtered_plot.get() and self.emg_postprocess_name.get() == 'gradient'
+        if show_emg_postprocessed_plot:
+            self.lca_plot.emg_postprocessed_plot.set_label('EMG gradient')
+        else:
+            self.lca_plot.emg_postprocessed_plot.set_label('_')
+        self.lca_plot.emg_postprocessed_plot.set_visible(show_emg_postprocessed_plot)
+
+        self.lca_plot.emg_axes.legend(loc='upper right')
 
         self.canvas.draw_idle()
 
@@ -744,31 +749,31 @@ class FftPlot:
         self.fft_axes.grid(True, linestyle='--', alpha=0.7)
         self.fft_axes.set_xlabel("Freq(Hz)")
         # scaling = 'spectrum'
-        # self.fft_axes.set_ylabel("Power", color='green')
+        # self.fft_axes.set_ylabel("Power(mV²)", color='green')
         scaling = 'density'
-        self.fft_axes.set_ylabel("Density", color='green')
+        self.fft_axes.set_ylabel("Density(mV²/Hz)", color='green')
         self.fft_axes.tick_params(axis='y', labelcolor='green')
 
         irange = SignalUtils.get_irange_from_xlim(self.lca_data.time_data, xlim)
         emg_raw = SignalUtils.cut_by_irange(self.lca_data.emg_raw, irange)
         emg_filtered = SignalUtils.cut_by_irange(self.lca_data.emg_filtered, irange)
 
-        fft_freq, fft_emg_raw = signal.welch(emg_raw,
+        fft_freq, fft_emg_raw = signal.welch(emg_raw, nperseg=1024,
                                              fs=lca_data.sampling_freq, window="hann", scaling=scaling)
-        fft_freq, fft_emg_filtered = signal.welch(emg_filtered,
+        fft_freq, fft_emg_filtered = signal.welch(emg_filtered, nperseg=1024,
                                                   fs=lca_data.sampling_freq, window="hann", scaling=scaling)
 
-        self.fft_raw_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_raw) ** 2,
-                                                label="EMG raw", color='green', linewidth=1,
-                                                alpha=0.8)
-        self.fft_filtered_plot, = self.fft_axes.plot(fft_freq, np.abs(fft_emg_filtered) ** 2,
+        self.fft_raw_plot, = self.fft_axes.plot(fft_freq, fft_emg_raw,
+                                                label="EMG raw", color='green',
+                                                linewidth=1, linestyle='dashed', alpha=0.3)
+        self.fft_filtered_plot, = self.fft_axes.plot(fft_freq, fft_emg_filtered,
                                                      label="EMG filtered", color='green',
-                                                     linewidth=1.2, alpha=0.8)
+                                                     linewidth=1, alpha=0.8)
 
         self.fft_axes.set_xlim(0, 200)
         # self.fft_axes.set_ylim(0, 0.01)
 
-        self.fft_axes.legend()
+        self.fft_axes.legend(loc='upper right')
 
 
 class FftWindow:
