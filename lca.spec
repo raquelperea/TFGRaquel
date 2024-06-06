@@ -34,8 +34,6 @@ exe = EXE(
     splash.binaries,
     [],
     name='lca',
-    debug=True,
-    bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
